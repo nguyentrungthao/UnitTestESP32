@@ -1,12 +1,12 @@
 /**
  * @file DWIN.h
  * @author Trung Thao (you@domain.com)
- * @brief 
+ * @brief
  * @version 0.1
  * @date 2025-04-21
- * 
+ *
  * @copyright Copyright (c) 2025
- * 
+ *
  */
 #ifndef DWIN_H
 #define DWIN_H
@@ -23,55 +23,40 @@
 #define ARDUINO_RX_PIN 10
 #define ARDUINO_TX_PIN 11
 
-struct TouchFrame_t {
+struct TouchFrame_t
+{
   uint16_t u16VPaddress;
   uint16_t u16KeyValue;
 };
-struct WaitingResponeFrame_t {
-  const uint8_t* pu8SendCMD;
-  uint32_t u8SendCMDSize;
-  uint8_t* pu8DataReceive;
-  uint32_t u8DataReceiveSize;
-  QueueHandle_t xQueueGet;
+struct PendingRequest_t
+{
+  uint8_t u8cmd;
+  uint16_t u16VPaddress;
+  QueueHandle_t xQueueGetResponeData;
 };
 
-class LeaseQueue {
-public:
-  LeaseQueue(uint16_t sizeOfArrQueueManager);
-  ~LeaseQueue();
-
-  int8_t getIndexQueue();
-  QueueHandle_t rentQueueHandle(int8_t index);
-  void refundQueue(int8_t index);
-private:
-  struct LeaseQueuePaket_t {
-    bool blOccupied;
-    QueueHandle_t xQueueGet;
-  };
-  uint16_t u16SizeOfArrQueueManager;
-  LeaseQueuePaket_t* arrQueueManager;
-};
-
-class DWIN : public LeaseQueue {
+class DWIN
+{
 public:
   typedef void (*hmiListener)(String address, uint16_t lastBytes, String message, String response);
 
-  DWIN(HardwareSerial& port, uint8_t receivePin = ARDUINO_RX_PIN, uint8_t transmitPin = ARDUINO_TX_PIN, long baud = DWIN_DEFAULT_BAUD_RATE, uint16_t sizeLeaseQueue = 10);
+  DWIN(HardwareSerial &port, uint8_t receivePin = ARDUINO_RX_PIN, uint8_t transmitPin = ARDUINO_TX_PIN, long baud = DWIN_DEFAULT_BAUD_RATE, uint16_t sizeLeaseQueue = 10);
 
   void begin(uint32_t u32StackDepthReceive = 8096, BaseType_t xCoreID = tskNO_AFFINITY);
-  void setupTouchCallBack(QueueHandle_t* pxTouchQueue, uint16_t sizeOfQueue);
+  void setupTouchCallBack(QueueHandle_t *pxTouchQueue, uint16_t sizeOfQueue);
   void setupTouchCallBack(hmiListener callBackTouch);
 
   void echoEnabled(bool enabled);
   void crcEnabled(bool enabled);
 
-  esp_err_t sendArray(uint8_t* dwinSendArray, uint8_t arraySize, uint8_t* pu8OutData = NULL, uint16_t u16OutDataSize = 0);
+  esp_err_t sendArray(uint8_t *dwin_payload_data, uint8_t payload_data_size, uint8_t *response_buffer = NULL, uint16_t response_buffer_size_max = 0);
+
   void setVPWord(long address, int data);
   void readVPWord(long address, uint8_t numWords);
 
   // Get Version
   double getHWVersion();
-  //get GUI software version
+  // get GUI software version
   double getGUISoftVersion();
   // restart HMI
   void restartHMI();
@@ -121,39 +106,37 @@ public:
   void setGraphRightToLeft(uint16_t spAddr);
   void setGraphLeftToRight(uint16_t spAddr);
   void sendGraphValue(int channel, int value);
-  void sendGraphValue(int channel, const int* values, size_t valueCount);
+  void sendGraphValue(int channel, const int *values, size_t valueCount);
   void resetGraph(int channel);
 
   // Chỉ trả về False khi xảy ra lỗi trong quá trình cập nhật
   // Các trường hợp không tìm thấy thư mục hoặc file cập nhật
   // Tức là không có bản cập nhật mới sẽ trả về true
-  bool updateHMI(fs::FS& filesystem, const char* dirPath);
-
+  bool updateHMI(fs::FS &filesystem, const char *dirPath);
 
 private:
-
-  HardwareSerial* _dwinSerial;
+  HardwareSerial *_dwinSerial;
   uint8_t _rxPin, _txPin;
   long _baudrate;
-  bool _isSoft;        // Is serial interface software
-  long _baud;          // DWIN HMI Baud rate
-  bool _echo = false;  // Response Command Show
-  bool _crc = false;
+  bool _isSoft;       // Is serial interface software
+  long _baud;         // DWIN HMI Baud rate
+  bool _echo; // Response Command Show
+  bool _crc;
   hmiListener listenerCallback;
-  QueueHandle_t xTouchQueue;
-  QueueHandle_t xReadWriteQueue;
-  QueueHandle_t xResponeQueueHandle;
+  QueueHandle_t xQueueTouch;
+  QueueHandle_t xQueueCommandReadWrite;
+  QueueHandle_t xQueueResponeDataEvent;
+  SemaphoreHandle_t xMutexPendingRequest;
+
   static TaskHandle_t xTaskDWINHandle;
 
-
-  bool isFirmwareFile(String& fileName);
+  bool isFirmwareFile(String &fileName);
   void flushSerial();
   void clearSerial();
-  uint16_t u16CalculateCRCModbus(uint8_t* data, size_t length);
+  uint16_t u16CalculateCRCModbus(uint8_t *data, size_t length);
 
-  static void xTaskReceiveUartEvent(void* ptr);
+  static void xTaskReceiveUartEvent(void *ptr);
   void xHandle();
   static void vTriggerTaskReceiveFromUartEvent();
-  static void xTaskCallback(void *ptr);
 };
-#endif  // DWIN_H
+#endif // DWIN_H

@@ -5,8 +5,8 @@
 #define CMD_WRITE 0x82
 #define CMD_READ 0x83
 #define CMD_TOUCH 0x83
-#define MAX_ASCII 0xFF
-
+#define MIN_ASCII 32
+#define MAX_ASCII 255
 
 #define FRAME_HEADER_POSTION1 0
 #define FRAME_HEADER_POSTION2 1
@@ -17,185 +17,186 @@
 #define HIGH_KEY_POSITION 7
 #define LOW_KEY_POSITION 8
 #define MAX_RESPONE_LENGTH 260
-#define __GET_VP_ADDRESS(arr, sizeArray) ((sizeArray <= LOW_VP_POSITION) ? 0 : ((((uint16_t)(arr)[HIGH_VP_POSITION]) << 8) | (arr)[LOW_VP_POSITION]))
-#define __NOT(condition) !(condition)
+#define _GET_VP_ADDRESS(arr, sizeArray) ((sizeArray <= LOW_VP_POSITION) ? 0 : ((((uint16_t)(arr)[HIGH_VP_POSITION]) << 8) | (arr)[LOW_VP_POSITION]))
+#define _NOT(condition) !(condition)
 
 #define TIME_OUT_RECEIVE 1000
 
 TaskHandle_t DWIN::xTaskDWINHandle;
 
-LeaseQueue::LeaseQueue(uint16_t sizeOfArrQueueManager) {
-  u16SizeOfArrQueueManager = sizeOfArrQueueManager;
-  arrQueueManager = (LeaseQueuePaket_t*)malloc(u16SizeOfArrQueueManager * sizeof(LeaseQueuePaket_t));
-  for (uint16_t i = 0; i < sizeOfArrQueueManager; i++) {
-    arrQueueManager[i].blOccupied = false;
-    arrQueueManager[i].xQueueGet = xQueueCreate(1, sizeof(WaitingResponeFrame_t));
-    if (arrQueueManager[i].xQueueGet == NULL) {
-      ESP_LOGE(_FILE__, "\t\tERROR: LeaseQueue không thể tạo hàng đợi => restart\n");
-      esp_restart();
-    }
-  }
+DWIN::DWIN(HardwareSerial &port, uint8_t receivePin, uint8_t transmitPin, long baud, uint16_t sizeLeaseQueue)
+    : _dwinSerial((HardwareSerial *)&port),
+      listenerCallback(NULL),
+      _baudrate(baud),
+      _rxPin(receivePin),
+      _txPin(transmitPin)
+{
 }
 
-LeaseQueue::~LeaseQueue() {
-  for (uint16_t i = 0; i < u16SizeOfArrQueueManager; i++) {
-    if (arrQueueManager[i].xQueueGet != NULL) {
-      vQueueDelete(arrQueueManager[i].xQueueGet);
-    }
-  }
-  if (arrQueueManager)
-    free(arrQueueManager);
-}
-
-int8_t LeaseQueue::getIndexQueue() {
-  for (int8_t i = 0; i < u16SizeOfArrQueueManager; i++) {
-    if (arrQueueManager[i].blOccupied == false && arrQueueManager[i].xQueueGet != NULL) {
-      arrQueueManager[i].blOccupied = true;
-      return i;
-    }
-  }
-  Serial.printf("\tWARNING: nhiều lệnh read/write được gọi cùng lúc => tăng  kích thước arrQueueManager\n");
-  return -1;
-}
-QueueHandle_t LeaseQueue::rentQueueHandle(int8_t index) {
-  if (index < 0 || index >= u16SizeOfArrQueueManager) {
-    return NULL;
-  }
-  return arrQueueManager[index].xQueueGet;
-}
-void LeaseQueue::refundQueue(int8_t index) {
-  if (index < 0 || index >= u16SizeOfArrQueueManager) {
-    return;
-  }
-  arrQueueManager[index].blOccupied = false;
-}
-
-DWIN::DWIN(HardwareSerial& port, uint8_t receivePin, uint8_t transmitPin, long baud, uint16_t sizeLeaseQueue)
-  : LeaseQueue(sizeLeaseQueue),
-  _dwinSerial((HardwareSerial*)&port),
-  listenerCallback(NULL),
-  _baudrate(baud),
-  _rxPin(receivePin),
-  _txPin(transmitPin) {
-}
-
-void DWIN::begin(uint32_t u32StackDepthReceive, BaseType_t xCoreID) {
+void DWIN::begin(uint32_t u32StackDepthReceive, BaseType_t xCoreID)
+{
   _dwinSerial->begin(_baudrate, SERIAL_8N1, _rxPin, _txPin);
   delay(10);
-  xReadWriteQueue = xQueueCreate(1, sizeof(WaitingResponeFrame_t));
+  xQueueCommandReadWrite = xQueueCreate(1, sizeof(PendingRequest_t));
   delay(10);
-  xResponeQueueHandle = xQueueCreate(1, sizeof(WaitingResponeFrame_t));
-  xTaskCreatePinnedToCore(xTaskReceiveUartEvent, "RecvUartEvent", u32StackDepthReceive, (void*)this, configMAX_PRIORITIES - 1, &xTaskDWINHandle, xCoreID);
+  xQueueResponeDataEvent = xQueueCreate(1, sizeof(MAX_RESPONE_LENGTH));
+  delay(10);
+  xMutexPendingRequest = xSemaphoreCreateMutex();
+  delay(10);
+  xTaskCreatePinnedToCore(xTaskReceiveUartEvent, "RecvUartEvent", u32StackDepthReceive, (void *)this, configMAX_PRIORITIES - 1, &xTaskDWINHandle, xCoreID);
   delay(10);
   _dwinSerial->onReceive(vTriggerTaskReceiveFromUartEvent, true);
 }
 
-void DWIN::setupTouchCallBack(QueueHandle_t* pxTouchQueue, uint16_t sizeOfQueue) {
+void DWIN::setupTouchCallBack(QueueHandle_t *pxTouchQueue, uint16_t sizeOfQueue)
+{
   (*pxTouchQueue) = xQueueCreate(sizeOfQueue, sizeof(TouchFrame_t));
-  xTouchQueue = (*pxTouchQueue);
-  if (xTouchQueue == NULL) {
+  xQueueTouch = (*pxTouchQueue);
+  if (xQueueTouch == NULL)
+  {
     ESP_LOGE(__FILE__, "%s can't create Queue => esp restart", __func__);
     esp_restart();
   }
 }
-void DWIN::setupTouchCallBack(hmiListener callBackTouch) {
-  xTouchQueue = xQueueCreate(5, sizeof(TouchFrame_t));
-  if (__NOT(callBackTouch)) {
+void DWIN::setupTouchCallBack(hmiListener callBackTouch)
+{
+  xQueueTouch = xQueueCreate(5, sizeof(TouchFrame_t));
+  if (_NOT(callBackTouch))
+  {
     ESP_LOGE(__FILE__, "%s INVALID PRAMETER", __func__);
     return;
   }
   listenerCallback = callBackTouch;
 }
 
-void DWIN::echoEnabled(bool enabled) {
+void DWIN::echoEnabled(bool enabled)
+{
   _echo = enabled;
 }
-void DWIN::crcEnabled(bool enabled) {
+void DWIN::crcEnabled(bool enabled)
+{
   _crc = enabled;
 }
-
 
 /**
  *@brief send the dwinSendArray and get the respone
  *
  * @param dwinSendArray data send to DWIN without Frame header and Length. example 5AA5 06 (83 00 0F 01 14 10) <---
  * @param arraySize size of dwinSendArray
- * @param pu8OutData buffer get data respone from DWIN display. input NULL if you dont need the respone
+ * @param pu8OutData pu8BufferReceiver get data respone from DWIN display. input NULL if you dont need the respone
  * @param u16OutDataSize size of pu8OutData. it should be greater than or equal to expect respone data from DWIN display
  *                       Maxvalue is MAX_RESPONE_LENGTH
  * @return esp_err_t ESP_OK: send dwinSendArray and get respone in timeout 100ms
  */
-esp_err_t DWIN::sendArray(uint8_t* dwinSendArray, uint8_t arraySize, uint8_t* pu8OutData, uint16_t u16OutDataSize) {
-  if (dwinSendArray == NULL) {
-    return ESP_ERR_INVALID_ARG;
+esp_err_t DWIN::sendArray(uint8_t *dwin_payload_data, uint8_t payload_data_size, uint8_t *response_buffer, uint16_t response_buffer_size_max)
+{
+  // Validate input parameters
+  if (dwin_payload_data == NULL || payload_data_size < 3)
+  {
+    ESP_LOGE(__func__, "Invalid parameters: dwin_payload_data is NULL or payload_data_size is too small.");
+    return ESP_ERR_INVALID_ARG; 
   }
 
-  //chuẩn bị dữ liệu
-  uint8_t dataLen = arraySize + 3;
-  if (_crc) {
-    dataLen += 2;
-  }
-  uint8_t sendBuffer[dataLen] = { CMD_HEAD1, CMD_HEAD2, dataLen - 3 };
-  const uint16_t u16SizeOfSendBuffer = sizeof(sendBuffer) / sizeof(sendBuffer[0]);
-  memcpy(sendBuffer + 3, dwinSendArray, arraySize);
-  if (_crc) {
-    uint16_t crc = u16CalculateCRCModbus(sendBuffer + 3, u16SizeOfSendBuffer - 5);
-    sendBuffer[u16SizeOfSendBuffer - 2] = crc & 0xFF;
-    sendBuffer[u16SizeOfSendBuffer - 1] = (crc >> 8) & 0xFF;
+  uint8_t total_frame_length = payload_data_size + 3;
+  if (_crc)
+  {                          
+    total_frame_length += 2; 
   }
 
-  if (_echo) {
-    Serial.printf("Send array: ");
-    for (uint8_t i = 0; i < dataLen; i++) {
-      Serial.printf("%x ", sendBuffer[i]);
-    }
-    Serial.println();
+  uint8_t send_frame_buffer[total_frame_length];
+
+  send_frame_buffer[0] = CMD_HEAD1; 
+  send_frame_buffer[1] = CMD_HEAD2; // Assuming CMD_HEAD2 is DWIN_CMD_HEADER_BYTE2
+  send_frame_buffer[2] = payload_data_size;     // The actual length of the data following the length byte
+
+  // Copy the DWIN payload data into the send pu8BufferReceiver
+  memcpy(send_frame_buffer + 3, dwin_payload_data, payload_data_size);
+
+  // Calculate and append CRC if enabled
+  if (_crc)
+  {
+    // CRC is typically calculated over the command and data bytes
+    // Adjust the size based on your DWIN CRC specification
+    uint16_t crc_value = u16CalculateCRCModbus(send_frame_buffer + 3, payload_data_size); // Assuming calculateCRC takes (data_ptr, len)
+    send_frame_buffer[total_frame_length - 2] = (uint8_t)(crc_value & 0xFF);
+    send_frame_buffer[total_frame_length - 1] = (uint8_t)((crc_value >> 8) & 0xFF);
   }
 
-  // đưa vào hàng đợt trước khi gửi lệnh
-  uint8_t pu8Data[MAX_RESPONE_LENGTH] = {};
-  WaitingResponeFrame_t xWaitingElement = {
-    .pu8SendCMD = sendBuffer,
-    .u8SendCMDSize = dataLen,
-    .pu8DataReceive = pu8Data,
-    .u8DataReceiveSize = 0,
-    .xQueueGet = xResponeQueueHandle
+  // Prepare xPendingRequest request for the FreeRTOS queue
+  uint16_t VPaddress = (((uint16_t)send_frame_buffer[HIGH_VP_POSITION]) << 8) | send_frame_buffer[LOW_VP_POSITION]; // Using defined constants
+
+  PendingRequest_t xrequestInfo = {
+      .u8cmd = send_frame_buffer[CMD_POSITION], // Assuming CMD_POSITION is CMD_POSITION
+      .u16VPaddress = VPaddress,
+      .xQueueGetResponeData = xQueueResponeDataEvent, // Assuming QueueUartEventSenData is renamed to xQueueResponeDataEvent
   };
-  if (xQueueSend(xReadWriteQueue, &xWaitingElement, pdMS_TO_TICKS(1000)) != pdPASS) {
-    Serial.printf("xQueueSend fail\n");
-    return ESP_ERR_TIMEOUT;
+
+  esp_err_t function_status = ESP_FAIL; // Initialize status as failure
+
+  // Acquire mutex before sending the request and waiting for a response
+  if (xSemaphoreTake(xMutexPendingRequest, portMAX_DELAY) == pdFALSE)
+  {
+    ESP_LOGE(__func__, "Failed to acquire xPendingRequest request mutex.");
+    return function_status;
   }
 
-  // gửi lệnh
-  _dwinSerial->write(sendBuffer, sizeof(sendBuffer));
+  if (xQueueCommandReadWrite != NULL)
+  {
+    ESP_LOGE(__func__, "Command response queue is not initialized.");
+    return function_status;
+  }
+  if (xQueueSend(xQueueCommandReadWrite, &xrequestInfo, portMAX_DELAY) == pdFALSE)
+  {
+    ESP_LOGE(__func__, "Failed to send xPendingRequest request to command queue.");
+    return function_status;
+  }
 
-  // chờ data
-  bool ret = xQueueReceive(xResponeQueueHandle, &xWaitingElement, pdMS_TO_TICKS(TIME_OUT_RECEIVE));
-  if (ret == pdPASS) {
-    if (pu8OutData && u16OutDataSize >= xWaitingElement.u8DataReceiveSize) {
-      memcpy(pu8OutData, xWaitingElement.pu8DataReceive, xWaitingElement.u8DataReceiveSize);
+  // Send data over UART
+  _dwinSerial->write(send_frame_buffer, total_frame_length); // Assuming _dwinSerial is _dwinSerial
+
+  // Wait for the response
+  uint8_t incoming_response_buffer[MAX_RESPONE_LENGTH] = {0}; // Assuming MAX_RESPONE_LENGTH is MAX_RESPONE_LENGTH
+  BaseType_t queue_receive_status = xQueueReceive(xQueueResponeDataEvent, incoming_response_buffer, pdMS_TO_TICKS(1000));
+  if (queue_receive_status == pdPASS)
+  {
+    if (response_buffer != NULL && response_buffer_size_max >= MAX_RESPONE_LENGTH)
+    {
+      // Copy received data to the caller's pu8BufferReceiver
+      memcpy(response_buffer, incoming_response_buffer, MAX_RESPONE_LENGTH);
+      function_status = ESP_OK;
+    }
+    else
+    {
+      ESP_LOGW(__func__, "Response pu8BufferReceiver is NULL or too small for VP address: 0x%04X", VPaddress);
+      function_status = ESP_OK;
     }
   }
-  else {
-    Serial.printf("time out\n");
+  else
+  {
+    ESP_LOGW(__func__, "No response received for VP address: 0x%04X, Command: 0x%02X", VPaddress, send_frame_buffer[CMD_POSITION]);
   }
 
-  return ret ? ESP_OK : ESP_ERR_TIMEOUT;
+  // Remove the xPendingRequest request from the queue (even if response failed)
+  xQueueReceive(xQueueCommandReadWrite, &xrequestInfo, 0);
+
+  xSemaphoreGive(xMutexPendingRequest); // Release mutex
+
+  return function_status;
 }
 
-
-esp_err_t DWIN::setPage(uint8_t pageID) {
-  uint8_t sendBuffer[] = { CMD_WRITE, 0x00, 0x84, 0x5A, 0x01, 0x00, pageID };
+esp_err_t DWIN::setPage(uint8_t pageID)
+{
+  uint8_t sendBuffer[] = {CMD_WRITE, 0x00, 0x84, 0x5A, 0x01, 0x00, pageID};
 
   return sendArray(sendBuffer, sizeof(sendBuffer) / sizeof(sendBuffer[0]));
 }
 
-
 // set Data on VP Address
-esp_err_t DWIN::setText(long address, String textData) {
+esp_err_t DWIN::setText(long address, String textData)
+{
   uint16_t sendBufferSize = textData.length() + 5;
 
-  uint8_t sendBuffer[sendBufferSize] = { CMD_WRITE, (uint8_t)((address >> 8) & 0xFF), (uint8_t)((address) & 0xFF) };
+  uint8_t sendBuffer[sendBufferSize] = {CMD_WRITE, (uint8_t)((address >> 8) & 0xFF), (uint8_t)((address) & 0xFF)};
   sendBuffer[sendBufferSize - 1] = MAX_ASCII;
   sendBuffer[sendBufferSize - 2] = MAX_ASCII;
 
@@ -204,40 +205,45 @@ esp_err_t DWIN::setText(long address, String textData) {
   return sendArray(sendBuffer, sizeof(sendBuffer) / sizeof(sendBuffer[0]));
 }
 // get Data on VP Address
-String DWIN::getText(uint16_t vpAddress, uint8_t lenText) {
+String DWIN::getText(uint16_t vpAddress, uint8_t lenText)
+{
   String responeText = "";
   uint8_t numWords = lenText / 2 + 1;
-  uint8_t sendBuffer[] = { CMD_READ, (uint8_t)((vpAddress >> 8) & 0xFF), (uint8_t)((vpAddress) & 0xFF), numWords };
+  uint8_t sendBuffer[] = {CMD_READ, (uint8_t)((vpAddress >> 8) & 0xFF), (uint8_t)((vpAddress) & 0xFF), numWords};
   uint8_t pu8Data[MAX_RESPONE_LENGTH] = {};
 
   esp_err_t ret = sendArray(sendBuffer, sizeof(sendBuffer) / sizeof(sendBuffer[0]), pu8Data, MAX_RESPONE_LENGTH);
-  if (ret != ESP_OK) {
+  if (ret != ESP_OK)
+  {
     return responeText;
   }
 
-  //5a a5 10 83 80 0 5 41 42 ff ff 0 0 0 0 0 0 fc f6
+  // 5a a5 10 83 80 0 5 41 42 ff ff 0 0 0 0 0 0 fc f6
   uint16_t i = 7;
-  do {
-    if (isascii(pu8Data[i])) {
+  do
+  {
+    if (isascii(pu8Data[i]))
+    {
       responeText += (char)pu8Data[i];
     }
     i++;
-  } while (__NOT(pu8Data[i] == MAX_ASCII && pu8Data[i + 1] == MAX_ASCII));
+  } while (_NOT(pu8Data[i] == MAX_ASCII && pu8Data[i + 1] == MAX_ASCII));
 
   return responeText;
 }
 
-
 // private menthod
 
-bool DWIN::isFirmwareFile(String& fileName) {
-  const char* const pcCONST_END_FILE[] = {
-    ".bin", ".BIN", ".icl", ".ICL", ".dzk", ".DZK",
-    ".hzk", ".HZK", ".lib", ".LIB", ".wae", ".WAE",
-    ".uic", ".UIC", ".gif", ".GIF"
-  };
-  for (const auto& ext : pcCONST_END_FILE) {
-    if (fileName.endsWith(ext)) {
+bool DWIN::isFirmwareFile(String &fileName)
+{
+  const char *const pcCONST_END_FILE[] = {
+      ".bin", ".BIN", ".icl", ".ICL", ".dzk", ".DZK",
+      ".hzk", ".HZK", ".lib", ".LIB", ".wae", ".WAE",
+      ".uic", ".UIC", ".gif", ".GIF"};
+  for (const auto &ext : pcCONST_END_FILE)
+  {
+    if (fileName.endsWith(ext))
+    {
       return true;
     }
   }
@@ -248,26 +254,34 @@ bool DWIN::isFirmwareFile(String& fileName) {
  *@brief wait until TX have done
  *
  */
-void DWIN::flushSerial() {
+void DWIN::flushSerial()
+{
   _dwinSerial->flush();
 }
-void DWIN::clearSerial() {
-  while (_dwinSerial->available()) {
+void DWIN::clearSerial()
+{
+  while (_dwinSerial->available())
+  {
     _dwinSerial->read();
   }
 }
-uint16_t DWIN::u16CalculateCRCModbus(uint8_t* data, size_t length) {
+uint16_t DWIN::u16CalculateCRCModbus(uint8_t *data, size_t length)
+{
   uint16_t crc = 0xFFFF;
 
-  for (size_t i = 0; i < length; ++i) {
+  for (size_t i = 0; i < length; ++i)
+  {
     crc ^= data[i];
 
-    for (uint8_t j = 0; j < 8; ++j) {
-      if (crc & 0x01) {
+    for (uint8_t j = 0; j < 8; ++j)
+    {
+      if (crc & 0x01)
+      {
         crc >>= 1;
         crc ^= 0xA001;
       }
-      else {
+      else
+      {
         crc >>= 1;
       }
     }
@@ -276,73 +290,66 @@ uint16_t DWIN::u16CalculateCRCModbus(uint8_t* data, size_t length) {
   return crc;
 }
 
-void DWIN::xTaskReceiveUartEvent(void* ptr) {
-  DWIN* pxDWIN = (DWIN*)ptr;
+void DWIN::xTaskReceiveUartEvent(void *ptr)
+{
+  DWIN *pxDWIN = (DWIN *)ptr;
   uint32_t notifyNum;
-  while (1) {
+  while (1)
+  {
     xTaskNotifyWait(pdFALSE, pdTRUE, &notifyNum, portMAX_DELAY);
     pxDWIN->xHandle();
   }
 }
-void DWIN::xHandle() {
-  static uint8_t buffer[MAX_RESPONE_LENGTH] = {};
-  constexpr uint16_t SIZE_OF_BUFFER = sizeof(buffer) / sizeof(buffer[0]);
-  while (_dwinSerial->available()) {
-    if (_dwinSerial->read() != 0x5A) {
+void DWIN::xHandle()
+{
+  uint8_t pu8BufferReceiver[MAX_RESPONE_LENGTH] = {};
+  TouchFrame_t xTouchData = {};
+  while (_dwinSerial->available())
+  {
+    if (_dwinSerial->read() != CMD_HEAD1)
+    {
       continue;
     }
-    if (_dwinSerial->read() != 0xA5) {
+    if (_dwinSerial->read() != CMD_HEAD2)
+    {
       continue;
     }
-    buffer[FRAME_HEADER_POSTION1] = 0x5A;
-    buffer[FRAME_HEADER_POSTION2] = 0xA5;
-    const uint16_t length = _dwinSerial->read();
-    buffer[LENGTH_SEND_CMD_POSITION] = length;
-    _dwinSerial->readBytes(buffer + CMD_POSITION, length);
+    pu8BufferReceiver[FRAME_HEADER_POSTION1] = CMD_HEAD1;
+    pu8BufferReceiver[FRAME_HEADER_POSTION2] = CMD_HEAD2;
+    uint16_t length = _dwinSerial->read();
+    pu8BufferReceiver[LENGTH_SEND_CMD_POSITION] = length;
+    _dwinSerial->readBytes(pu8BufferReceiver + CMD_POSITION, length);
 
-    if (_crc) {
-      uint16_t receivedCRC;
-      memcpy((uint8_t*)&receivedCRC, &buffer[length + 1], 2);
-      uint16_t calculatedCRC = u16CalculateCRCModbus(buffer + CMD_POSITION, length - 2);
-      if (receivedCRC != calculatedCRC) {
-        Serial.println("Serial check -> Fail");
+    if (_crc)
+    {
+      uint16_t u16ReceivedCRC;
+      memcpy((uint8_t *)&u16ReceivedCRC, &pu8BufferReceiver[length + 1], 2);
+      uint16_t u16CalculatedCRC = u16CalculateCRCModbus(pu8BufferReceiver + CMD_POSITION, length - 2);
+      if (u16ReceivedCRC != u16CalculatedCRC)
+      {
+        ESP_LOGE(__func__, "DWIN frame CRC check failed. Received: 0x%04X, Calculated: 0x%04X", u16ReceivedCRC, u16CalculatedCRC);
         continue;
       }
     }
-    if (_echo) {
-      Serial.printf("DWIN receive: ");
-      for (uint8_t i = 0; i < length + 3; i++) {
-        Serial.printf("%x ", buffer[i]);
-      }
-      Serial.println();
-    }
-
-    const uint8_t cmd = buffer[CMD_POSITION];
-    const uint16_t VPaddressFromUart = __GET_VP_ADDRESS(buffer, SIZE_OF_BUFFER);
-
-    WaitingResponeFrame_t xWaitingResponeElement;
-    if (xQueuePeek(xReadWriteQueue, &xWaitingResponeElement, 0)) {
-
-      if (xWaitingResponeElement.pu8DataReceive) {
-        memcpy(xWaitingResponeElement.pu8DataReceive, buffer, length + 3);
-        xWaitingResponeElement.u8DataReceiveSize = length + 3;
-      }
-      if (xWaitingResponeElement.xQueueGet) {
-        xQueueSend(xWaitingResponeElement.xQueueGet, &xWaitingResponeElement, 0);
+    PendingRequest_t xPendingRequest;
+    uint16_t u16VPAddressReceive = _GET_VP_ADDRESS(pu8BufferReceiver, MAX_RESPONE_LENGTH);
+    uint8_t cmd = pu8BufferReceiver[CMD_POSITION];
+    if (xQueuePeek(xQueueCommandReadWrite, &xPendingRequest, 0) && cmd == xPendingRequest.u8cmd)
+    {
+      if (cmd == CMD_WRITE || (cmd == CMD_READ) && u16VPAddressReceive == xPendingRequest.u16VPaddress)
+      {
+        xQueueSend(xPendingRequest.xQueueGetResponeData, pu8BufferReceiver, 10);
+        continue;
       }
     }
-    else {
-      Serial.printf("TOUCH %lu \n", uxQueueMessagesWaiting(xReadWriteQueue));
-      TouchFrame_t xTouchDataSend = {
-        .u16VPaddress = VPaddressFromUart,
-        .u16KeyValue = (((uint16_t)buffer[7]) << 8) | buffer[8]
-      };
-      if (xTouchQueue) {
-        xQueueSend(xTouchQueue, &xTouchDataSend, 0);
-      }
-    }
+
+    // lệnh touch
+    xTouchData.u16VPaddress = u16VPAddressReceive;
+    xTouchData.u16KeyValue = (((uint16_t)pu8BufferReceiver[7]) << 8) | pu8BufferReceiver[8];
+    xQueueSend(xQueueTouch, &xTouchData, 0);
   }
 }
-void DWIN::vTriggerTaskReceiveFromUartEvent() {
+void DWIN::vTriggerTaskReceiveFromUartEvent()
+{
   xTaskNotify(xTaskDWINHandle, 0x01, eSetBits);
 }
