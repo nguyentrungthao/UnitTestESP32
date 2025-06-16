@@ -289,18 +289,18 @@ void setup()
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressTemperatureText, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressCO2Text, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressSetpointTempText, 2, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressSetpointCO2Text, 3, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText1, 4, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText2, 5, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText3, 1, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressSetpointCO2Text, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText1, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText2, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText3, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText4, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText5, 2, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText6, 5, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphYValueText6, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText1, 2, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText2, 5, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText3, 5, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText4, 3, NULL, 0);
-  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText5, 1, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText2, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText3, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText4, 2, NULL, 0);
+  xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText5, 2, NULL, 0);
   xTaskCreatePinnedToCore(foo, "", 8096, (void *)_VPAddressGraphY_R_ValueText6, 2, NULL, 0);
   xLastWakeTime = xTaskGetTickCount();
 }
