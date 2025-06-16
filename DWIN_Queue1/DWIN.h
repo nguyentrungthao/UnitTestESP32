@@ -49,7 +49,7 @@ public:
   void echoEnabled(bool enabled);
   void crcEnabled(bool enabled);
 
-  esp_err_t sendArray(uint8_t *dwin_payload_data, uint8_t payload_data_size, uint8_t *response_buffer = NULL, uint16_t response_buffer_size_max = 0);
+  esp_err_t sendArray(uint8_t *dwinSendArray, uint8_t arraySize, uint8_t *pu8OutData= NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 0);
 
   void setVPWord(long address, int data);
   void readVPWord(long address, uint8_t numWords);
@@ -82,9 +82,9 @@ public:
   void setRTCSOFT(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday, uint8_t hour, uint8_t minute, uint8_t second);
 
   // set Data on VP Address
-  esp_err_t setText(long address, String textData);
+  esp_err_t setText(uint16_t address, String textData);
   // get Data on VP Address
-  String getText(uint16_t vpAddress, uint8_t lenText);
+  String getText(uint16_t vpAddress, uint16_t length);
 
   void setTextColor(long spAddress, long spOffset, long color);
 
@@ -118,9 +118,9 @@ private:
   HardwareSerial *_dwinSerial;
   uint8_t _rxPin, _txPin;
   long _baudrate;
-  bool _isSoft;       // Is serial interface software
-  long _baud;         // DWIN HMI Baud rate
-  bool _echo; // Response Command Show
+  bool _isSoft; // Is serial interface software
+  long _baud;   // DWIN HMI Baud rate
+  bool _echo;   // Response Command Show
   bool _crc;
   hmiListener listenerCallback;
   QueueHandle_t xQueueTouch;

@@ -2,6 +2,7 @@
 #include <FifoBuffer.h>
 #include <vector>
 #include <esp_task_wdt.h>
+#include "DWIN.h"
 
 #define _NOT(condition) !(condition)
 
@@ -79,205 +80,40 @@
 #define _VPAddressGraphYValueText5 0x8314
 #define _VPAddressGraphYValueText6 0x8319
 
-typedef struct
-{
-  uint8_t cmd;
-  uint16_t u16VPaddress;
-  QueueHandle_t response_queue;
-} PendingRequest_t;
-// PendingRequest_t pxPendingRequest[20] = {};
-// constexpr uint16_t SIZE_OF_PENDING_REQUEST = sizeof(pxPendingRequest) / sizeof(PendingRequest_t);
-SemaphoreHandle_t xMutexPendingRequest = NULL;
-
-QueueHandle_t QueueSetGet = NULL;
-QueueHandle_t QueueUartEventSenData = NULL;
-
-struct TouchFrame_t
-{
-  uint16_t u16VPaddress;
-  uint16_t u16KeyValue;
-};
+DWIN _dwin(Serial2, HMI_RX_PIN, HMI_TX_PIN);
 
 TaskHandle_t taskHMIHandle;
-TaskHandle_t taskDWINHandle;
 QueueHandle_t QueueTouch;
 
-const uint8_t chuyenTrang[] = {0x5A, 0xA5, 0x09, 0x82, 0x00, 0x84, 0x5A, 0x01, 0x00, 0x46, 0x8B, 0xFC};
-const uint8_t getpage[] = {0x5A, 0xA5, 0x06, 0x83, 0x00, 0x0F, 0x01, 0xED, 0x90};
-const uint8_t arrGetText[][9] = {{0x5A, 0xA5, 0x06, 0x83, 0x80, 0x00, 0x05, 0xE8, 0x4B}, {0x5A, 0xA5, 0x06, 0x83, 0x80, 0x05, 0x05, 0xE8, 0x4B}};
-// const uint8_t setText[] = { 0x5A, 0xA5, 0x08, 0x82, 0x80, 0x00, 0x41, 0x42, 0xFF, 0xFF, 0x13, 0x50 };
-const uint8_t getGUIVersion[] = {0x5A, 0xA5, 0x04, 0x83, 0x00, 0x0F, 0x01, 0xFF, 0xFF};
 
-bool sendArray(uint8_t *dwinSendArray, uint8_t arraySize, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 100);
-
-bool sendArray(uint8_t *dwinSendArray, uint8_t arraySize, uint8_t *pu8OutData, uint16_t u16OutDataSize, uint16_t u16TimeOutInSecond)
-{
-  if (dwinSendArray == NULL || arraySize < 3)
-  {
-    ESP_LOGE(__func__, "loi tham so");
-    return 0;
-  }
-
-  //*chuẩn bị dữ liệu
-  uint8_t dataLen = arraySize + 3;
-  if (_crc)
-  {
-    dataLen += 2;
-  }
-  uint8_t sendBuffer[dataLen] = {CMD_HEAD1, CMD_HEAD2, dataLen - 3};
-  uint16_t u16SizeOfSendBuffer = sizeof(sendBuffer) / sizeof(sendBuffer[0]);
-  memcpy(sendBuffer + 3, dwinSendArray, arraySize);
-  if (_crc)
-  {
-    uint16_t crc = calculateCRC(sendBuffer + 3, u16SizeOfSendBuffer - 5);
-    sendBuffer[u16SizeOfSendBuffer - 2] = crc & 0xFF;
-    sendBuffer[u16SizeOfSendBuffer - 1] = (crc >> 8) & 0xFF;
-  }
-
-  //* đẩy vào queue chờ
-  uint16_t VPaddress = (((uint16_t)sendBuffer[HIGH_VP_POSITION]) << 8) | sendBuffer[LOW_VP_POSITION];
-  PendingRequest_t pending = {
-      .cmd = sendBuffer[CMD_POSITION],
-      .u16VPaddress = VPaddress,
-      .response_queue = QueueUartEventSenData,
-  };
-  if (xSemaphoreTake(xMutexPendingRequest, portMAX_DELAY))
-  {
-    if (QueueSetGet)
-    {
-      xQueueSend(QueueSetGet, &pending, portMAX_DELAY);
-    }
-  }
-
-  //* gửi uart
-  // clearSerial();
-  _dwinSerial.write(sendBuffer, sizeof(sendBuffer));
-  // _dwinSerial.flush();
-
-  //*chờ dữ liệu về
-  uint8_t arr[MAX_RESPONE_LENGTH] = {};
-  if (!QueueUartEventSenData && QueueSetGet)
-  {
-    xSemaphoreGive(xMutexPendingRequest);
-    return false;
-  }
-  bool ret = xQueueReceive(QueueUartEventSenData, arr, pdMS_TO_TICKS(1000));
-  if (ret == pdPASS)
-  {
-    if (pu8OutData && u16OutDataSize >= MAX_RESPONE_LENGTH)
-    {
-      memcpy(pu8OutData, arr, MAX_RESPONE_LENGTH);
-    }
-    else
-    {
-      Serial.printf("trỏ nhận null hoặc không đủ độ dài %x\n", VPaddress);
-    }
-  }
-  else
-  {
-    Serial.printf("khong nhan duoc phan hoi %x, %x\n", VPaddress, sendBuffer[CMD_POSITION]);
-  }
-
-  //* trả queue
-  xQueueReceive(QueueSetGet, &pending, 0);
-  xSemaphoreGive(xMutexPendingRequest);
-  return ret;
-}
-void taskDWIN(void *)
-{
-  uint32_t notifyNum;
-  static uint8_t buffer[MAX_RESPONE_LENGTH] = {};
-  constexpr uint16_t SIZE_OF_BUFFER = sizeof(buffer) / sizeof(buffer[0]);
-  TouchFrame_t touchSend;
-
-  /*
-  Instruction                    Unable CRC                        Check CRC Check
-  0x83 Read Instruction          Tx: 5AA5 04 83 000F 01            Tx: 5AA5 06 83 000F 01ED 90
-  0x83 Instruction Response      Rx: 5AA5 06 83 00 0F 01 14 10     Rx: 5AA5 08 83 00 0F 01 14 10 43 F0
-  0x82 Write Instruction         Tx: 5AA5 05 82 10 00 31 32        Tx: 5AA5 07 82 10 00 31 32 CC 9B
-  0x82 Instruction Response      Rx: 5AA5 03 82 4F 4B              Rx: 5AA5 05 82 4F 4B A5 EF
-  0x83 Touch Upload              Rx: 5AA5 06 83 10 01 01 00 5A     Rx: 5AA5 08 83 10 01 01 00 5A 0E 2C
-  */
-  while (1)
-  {
-    xTaskNotifyWait(pdFALSE, pdTRUE, &notifyNum, portMAX_DELAY);
-    while (_dwinSerial.available())
-    {
-      if (_dwinSerial.read() != 0x5A)
-      {
-        continue;
-      }
-      if (_dwinSerial.read() != 0xA5)
-      {
-        continue;
-      }
-      buffer[FRAME_HEADER_POSTION1] = 0x5A;
-      buffer[FRAME_HEADER_POSTION2] = 0xA5;
-      uint16_t length = _dwinSerial.read();
-      buffer[LENGTH_SEND_CMD_POSITION] = length;
-      _dwinSerial.readBytes(buffer + CMD_POSITION, length);
-
-      if (_crc)
-      {
-        uint16_t receivedCRC;
-        memcpy((uint8_t *)&receivedCRC, &buffer[length + 1], 2);
-        uint16_t calculatedCRC = calculateCRC(buffer + CMD_POSITION, length - 2);
-        if (receivedCRC != calculatedCRC)
-        {
-          ESP_LOGE(__func__, "Serial check -> Fail");
-          continue;
-        }
-      }
-      PendingRequest_t pending;
-      uint16_t VPaddressFromUart = _GET_VP_ADDRESS(buffer, SIZE_OF_BUFFER);
-      uint8_t cmd = buffer[CMD_POSITION];
-      if (xQueuePeek(QueueSetGet, &pending, 0) && cmd == pending.cmd)
-      {
-        if (cmd == CMD_WRITE || (cmd == CMD_READ) && VPaddressFromUart == pending.u16VPaddress)
-        {
-          xQueueSend(pending.response_queue, buffer, 10);
-          continue;
-        }
-      }
-
-      // lệnh touch
-      touchSend.u16VPaddress = VPaddressFromUart;
-      touchSend.u16KeyValue = (((uint16_t)buffer[7]) << 8) | buffer[8];
-      xQueueSend(QueueTouch, &touchSend, 0);
-    }
-    memset(buffer, 0, SIZE_OF_BUFFER);
-  }
-}
-
-void callBackUart()
-{
-  xTaskNotify(taskDWINHandle, 0x01, eSetBits);
-}
 TickType_t xLastWakeTime;
 void setup()
 {
   // put your setup code here, to run once:
   esp_task_wdt_deinit();
   Serial.begin(115200);
-  vDwinInit();
+  _dwin.begin();
+  _dwin.crcEnabled(true);
+  _dwin.setupTouchCallBack(&QueueTouch, 5);
 
-  sendArray((uint8_t *)(chuyenTrang + 3), sizeof(chuyenTrang) - 5);
-  setText(_VPAddressTemperatureText, "0");
-  setText(_VPAddressCO2Text, "500");
-  setText(_VPAddressSetpointTempText, "0");
-  setText(_VPAddressSetpointCO2Text, "500");
-  setText(_VPAddressGraphYValueText1, "0");
-  setText(_VPAddressGraphYValueText2, "500");
-  setText(_VPAddressGraphYValueText3, "0");
-  setText(_VPAddressGraphYValueText4, "500");
-  setText(_VPAddressGraphYValueText5, "0");
-  setText(_VPAddressGraphYValueText6, "500");
-  setText(_VPAddressGraphY_R_ValueText1, "0");
-  setText(_VPAddressGraphY_R_ValueText2, "500");
-  setText(_VPAddressGraphY_R_ValueText3, "0");
-  setText(_VPAddressGraphY_R_ValueText4, "500");
-  setText(_VPAddressGraphY_R_ValueText5, "0");
-  setText(_VPAddressGraphY_R_ValueText6, "500");
+  // sendArray((uint8_t *)(chuyenTrang + 3), sizeof(chuyenTrang) - 5);
+  _dwin.setPage(70);
+  _dwin.setText(_VPAddressTemperatureText, "0");
+  _dwin.setText(_VPAddressCO2Text, "500");
+  _dwin.setText(_VPAddressSetpointTempText, "0");
+  _dwin.setText(_VPAddressSetpointCO2Text, "500");
+  _dwin.setText(_VPAddressGraphYValueText1, "0");
+  _dwin.setText(_VPAddressGraphYValueText2, "500");
+  _dwin.setText(_VPAddressGraphYValueText3, "0");
+  _dwin.setText(_VPAddressGraphYValueText4, "500");
+  _dwin.setText(_VPAddressGraphYValueText5, "0");
+  _dwin.setText(_VPAddressGraphYValueText6, "500");
+  _dwin.setText(_VPAddressGraphY_R_ValueText1, "0");
+  _dwin.setText(_VPAddressGraphY_R_ValueText2, "500");
+  _dwin.setText(_VPAddressGraphY_R_ValueText3, "0");
+  _dwin.setText(_VPAddressGraphY_R_ValueText4, "500");
+  _dwin.setText(_VPAddressGraphY_R_ValueText5, "0");
+  _dwin.setText(_VPAddressGraphY_R_ValueText6, "500");
 
   pinMode(0, INPUT);
   while (digitalRead(0) == 1)
@@ -311,11 +147,11 @@ void loop()
 }
 void cout(uint16_t VP)
 {
-  String text = getText(VP, 5);
+  String text = _dwin.getText(VP, 5);
   int c = text.toInt() + 1;
   if (c > 999)
     c = 0;
-  setText(VP, (String)c);
+  _dwin.setText(VP, (String)c);
 }
 void foo(void *a)
 {
@@ -328,67 +164,11 @@ void foo(void *a)
     vTaskDelay(pdMS_TO_TICKS(1));
   }
 }
-
-void vDwinInit()
-{
-  Serial2.begin(115200, SERIAL_8N1, HMI_RX_PIN, HMI_TX_PIN);
-
-  QueueSetGet = xQueueCreate(1, sizeof(PendingRequest_t));
-  QueueUartEventSenData = xQueueCreate(1, MAX_RESPONE_LENGTH);
-  QueueTouch = xQueueCreate(5, sizeof(TouchFrame_t));
-  if (_NOT(QueueTouch))
-  {
-    Serial.printf("ERROR: không thể cấp phát đủ QueueTouch\n");
-    delay(1000);
-    esp_restart();
-  }
-  xMutexPendingRequest = xSemaphoreCreateMutex();
-  xTaskCreatePinnedToCore(taskDWIN, "taskDWIN", 8096, NULL, configMAX_PRIORITIES - 1, &taskDWINHandle, 0);
-  Serial2.onReceive(callBackUart, true);
-}
-void setText(uint16_t VPaddress, String text)
-{
-  // Serial.printf("%s %x\n", __func__, VPaddress);
-  uint16_t sendBufferSize = text.length() + 5;
-
-  uint8_t sendBuffer[sendBufferSize] = {CMD_WRITE, (uint8_t)((VPaddress >> 8) & 0xFF), (uint8_t)((VPaddress) & 0xFF)};
-  sendBuffer[sendBufferSize - 1] = MAX_ASCII;
-  sendBuffer[sendBufferSize - 2] = MAX_ASCII;
-
-  memcpy(sendBuffer + 3, text.c_str(), text.length());
-
-  uint8_t pu8Data[MAX_RESPONE_LENGTH] = {};
-  sendArray(sendBuffer, sizeof(sendBuffer) / sizeof(sendBuffer[0]), pu8Data, MAX_RESPONE_LENGTH);
-}
-
-String getText(uint16_t VPaddress, uint16_t length)
-{
-  // Serial.printf("%s %x\n", __func__, VPaddress);
-  uint8_t numWords = length / 2 + 1;
-  uint8_t sendBuffer[] = {CMD_READ, (uint8_t)((VPaddress >> 8) & 0xFF), (uint8_t)((VPaddress) & 0xFF), numWords};
-  uint8_t pu8Data[MAX_RESPONE_LENGTH] = {};
-
-  sendArray(sendBuffer, sizeof(sendBuffer) / sizeof(sendBuffer[0]), pu8Data, MAX_RESPONE_LENGTH);
-
-  String responeText = "";
-  // 5a a5 10 83 80 0 5 41 42 ff ff 0 0 0 0 0 0 fc f6
-  uint16_t i = 7;
-  do
-  {
-    if (isascii(pu8Data[i]))
-    {
-      responeText += (char)pu8Data[i];
-    }
-    i++;
-  } while (_NOT(pu8Data[i] == MAX_ASCII && pu8Data[i + 1] == MAX_ASCII));
-
-  return responeText;
-}
 void taskHMI(void *)
 {
   uint32_t notifyNum;
   TouchFrame_t touchRev;
-  setText(_VPAddressDelayOffText, "0");
+  _dwin.setText(_VPAddressDelayOffText, "0");
 
   pinMode(SERVO_PIN, OUTPUT);
   digitalWrite(SERVO_PIN, 0);
