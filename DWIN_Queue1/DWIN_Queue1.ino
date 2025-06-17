@@ -98,6 +98,7 @@ void setup()
 
   // sendArray((uint8_t *)(chuyenTrang + 3), sizeof(chuyenTrang) - 5);
   _dwin.setPage(70);
+  Serial.println(_dwin.getPage());
   _dwin.setText(_VPAddressTemperatureText, "0");
   _dwin.setText(_VPAddressCO2Text, "500");
   _dwin.setText(_VPAddressSetpointTempText, "0");

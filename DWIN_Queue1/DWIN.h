@@ -49,17 +49,17 @@ public:
   void echoEnabled(bool enabled);
   void crcEnabled(bool enabled);
 
-  esp_err_t sendArray(uint8_t *dwinSendArray, uint8_t arraySize, uint8_t *pu8OutData= NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 0);
+  esp_err_t sendArray(const uint8_t *dwinSendArray, uint8_t arraySize, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
 
-  void setVPWord(long address, int data);
-  void readVPWord(long address, uint8_t numWords);
+  esp_err_t setVPWord(uint16_t address, uint16_t data, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
+  esp_err_t readVPWord(uint16_t address, uint8_t numWords, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
 
   // Get Version
   double getHWVersion();
   // get GUI software version
   double getGUISoftVersion();
   // restart HMI
-  void restartHMI();
+  esp_err_t restartHMI();
 
   // set Particular Page
   esp_err_t setPage(uint8_t pageID);
@@ -67,52 +67,52 @@ public:
   uint8_t getPage();
 
   // set LCD Brightness
-  void setBrightness(uint8_t pConstrast);
+  esp_err_t setBrightness(uint8_t pConstrast);
   // set LCD Brightness
   uint8_t getBrightness();
 
   // Play a sound
-  void playSound(uint8_t soundID);
+  esp_err_t playSound(uint8_t soundID);
   // beep Buzzer
-  void beepHMI(int time);
+  esp_err_t beepHMI(int time);
 
   // set the hardware RTC The first two digits of the year are automatically added
-  void setRTC(uint8_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second);
+  esp_err_t setRTC(uint8_t year, uint8_t month, uint8_t day, uint8_t hour, uint8_t minute, uint8_t second);
   // upHMI_DATE the software RTC The first two digits of the year are automatically added
-  void setRTCSOFT(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday, uint8_t hour, uint8_t minute, uint8_t second);
+  esp_err_t setRTCSOFT(uint8_t year, uint8_t month, uint8_t day, uint8_t weekday, uint8_t hour, uint8_t minute, uint8_t second);
 
   // set Data on VP Address
   esp_err_t setText(uint16_t address, String textData);
   // get Data on VP Address
-  String getText(uint16_t vpAddress, uint16_t length);
+  String getText(uint16_t vpAddress, uint8_t length);
 
-  void setTextColor(long spAddress, long spOffset, long color);
+  esp_err_t setTextColor(uint16_t spAddress, uint16_t spOffset, uint16_t color, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
 
-  void setInt16Value(uint16_t vpAddress, int16_t value);
-  void setInt32Value(uint16_t vpAddress, int32_t value);
-  void setUint16Value(uint16_t vpAddress, uint16_t value);
-  void setUint32Value(uint16_t vpAddress, uint32_t value);
-  void setFloatValue(long vpAddress, float fValue);
-  int16_t getInt16Value(uint16_t vpAddress);
-  int32_t getInt32Value(uint16_t vpAddress);
-  uint16_t getUint16Value(uint16_t vpAddress);
-  uint32_t getUint32Value(uint16_t vpAddress);
-  float getFloatValue(uint16_t vpAddress);
+  // esp_err_t setInt16Value(uint16_t vpAddress, int16_t value);
+  // esp_err_t setInt32Value(uint16_t vpAddress, int32_t value);
+  // esp_err_t setUint16Value(uint16_t vpAddress, uint16_t value);
+  // esp_err_t setUint32Value(uint16_t vpAddress, uint32_t value);
+  // esp_err_t setFloatValue(long vpAddress, float fValue);
+  // int16_t getInt16Value(uint16_t vpAddress);
+  // int32_t getInt32Value(uint16_t vpAddress);
+  // uint16_t getUint16Value(uint16_t vpAddress);
+  // uint32_t getUint32Value(uint16_t vpAddress);
+  // float getFloatValue(uint16_t vpAddress);
 
-  void setGraphYCentral(uint16_t spAddr, int value);
-  void setGraphVDCentral(uint16_t spAddr, int value);
-  void setGraphMulY(uint16_t spAddr, int value);
-  void setGraphColor(uint16_t spAddr, int value);
-  void setGraphRightToLeft(uint16_t spAddr);
-  void setGraphLeftToRight(uint16_t spAddr);
-  void sendGraphValue(int channel, int value);
-  void sendGraphValue(int channel, const int *values, size_t valueCount);
-  void resetGraph(int channel);
+  esp_err_t setGraphYCentral(uint16_t spAddr, int value);
+  esp_err_t setGraphVDCentral(uint16_t spAddr, int value);
+  esp_err_t setGraphMulY(uint16_t spAddr, int value);
+  esp_err_t setGraphColor(uint16_t spAddr, int value);
+  esp_err_t setGraphRightToLeft(uint16_t spAddr);
+  esp_err_t setGraphLeftToRight(uint16_t spAddr);
+  esp_err_t sendGraphValue(uint8_t channel, uint16_t value);
+  esp_err_t sendGraphValue(uint16_t channel, const uint16_t *values, uint8_t valueCount);
+  esp_err_t resetGraph(uint8_t channel);
 
   // Chỉ trả về False khi xảy ra lỗi trong quá trình cập nhật
   // Các trường hợp không tìm thấy thư mục hoặc file cập nhật
   // Tức là không có bản cập nhật mới sẽ trả về true
-  bool updateHMI(fs::FS &filesystem, const char *dirPath);
+  esp_err_t updateHMI(fs::FS &filesystem, const char *dirPath);
 
 private:
   HardwareSerial *_dwinSerial;
@@ -138,5 +138,6 @@ private:
   static void xTaskReceiveUartEvent(void *ptr);
   void xHandle();
   static void vTriggerTaskReceiveFromUartEvent();
+  uint16_t u6CalcuSizeOfResponeBuffer(const uint8_t *sendBuffer, uint16_t u16SizeOfBuffer);
 };
 #endif // DWIN_H
