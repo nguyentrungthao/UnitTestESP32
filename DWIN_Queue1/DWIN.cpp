@@ -43,7 +43,7 @@ void DWIN::begin(uint32_t u32StackDepthReceive, BaseType_t xCoreID)
   delay(10);
   xMutexPendingRequest = xSemaphoreCreateMutex();
   delay(10);
-  xTaskCreatePinnedToCore(xTaskReceiveUartEvent, "RecvUartEvent", u32StackDepthReceive, (void *)this, configMAX_PRIORITIES - 1, &xTaskDWINHandle, xCoreID);
+  xTaskCreatePinnedToCore(xTaskReceiveUartEvent, "DWINEvent", u32StackDepthReceive, (void *)this, configMAX_PRIORITIES - 1, &xTaskDWINHandle, xCoreID);
   delay(10);
   _dwinSerial->onReceive(vTriggerTaskReceiveFromUartEvent, true);
 }
@@ -169,6 +169,10 @@ esp_err_t DWIN::readVPWord(uint16_t address, uint8_t numWords, uint8_t *pu8OutDa
   uint8_t sendBuffer[] = {CMD_READ, (uint8_t)((address >> 8) & 0xFF), (uint8_t)((address) & 0xFF), numWords};
 
   return sendArray(sendBuffer, sizeof(sendBuffer), pu8OutData, u16OutDataSize, u16TimeOutInSecond);
+}
+esp_err_t DWIN::setVPByte(uint16_t address, uint8_t data, uint8_t *pu8OutData, uint16_t u16OutDataSize, uint16_t u16TimeOutInSecond)
+{
+  return setVPWord(address, data, pu8OutData, u16OutDataSize, u16TimeOutInSecond);
 }
 
 double DWIN::getHWVersion()

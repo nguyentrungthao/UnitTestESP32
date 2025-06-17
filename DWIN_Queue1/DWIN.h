@@ -42,7 +42,7 @@ public:
 
   DWIN(HardwareSerial &port, uint8_t receivePin = ARDUINO_RX_PIN, uint8_t transmitPin = ARDUINO_TX_PIN, long baud = DWIN_DEFAULT_BAUD_RATE, uint16_t sizeLeaseQueue = 10);
 
-  void begin(uint32_t u32StackDepthReceive = 8096, BaseType_t xCoreID = tskNO_AFFINITY);
+  void begin(uint32_t u32StackDepthReceive = 4096, BaseType_t xCoreID = tskNO_AFFINITY);
   void setupTouchCallBack(QueueHandle_t *pxTouchQueue, uint16_t sizeOfQueue);
   void setupTouchCallBack(hmiListener callBackTouch);
 
@@ -53,6 +53,7 @@ public:
 
   esp_err_t setVPWord(uint16_t address, uint16_t data, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
   esp_err_t readVPWord(uint16_t address, uint8_t numWords, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
+  esp_err_t setVPByte(uint16_t address, uint8_t data, uint8_t *pu8OutData = NULL, uint16_t u16OutDataSize = 0, uint16_t u16TimeOutInSecond = 1000);
 
   // Get Version
   double getHWVersion();

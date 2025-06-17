@@ -51,7 +51,6 @@
 static TaskHandle_t _hmiListenTaskHandle;
 
 HMI::HMI(HardwareSerial &port, uint8_t receivePin, uint8_t transmitPin, long baud) : DWIN(port, receivePin, transmitPin, baud),
-                                                                                     _hmiSerial(&port),
                                                                                      _TenChuongTrinh(""),
                                                                                      _ChiMucChuongTrinhTruocDo(0xffff),
                                                                                      _ChiMucPhanDoanTruocDo(0xffff),
@@ -61,170 +60,194 @@ HMI::HMI(HardwareSerial &port, uint8_t receivePin, uint8_t transmitPin, long bau
 {
 }
 
-void HMI::KhoiTao(void)
+void HMI::KhoiTao(uint32_t u32StackDepthReceive, BaseType_t xCoreID)
 {
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetSetpointTemp, _NutCaiNhietDoSetpoint_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetSetpointCO2, _NutCaiCO2Setpoint_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetFanSpeed, _NutCaiTocDoQuat_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage103Wakeup, _NutThucDay_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetSetpointTemp, _NutCaiNhietDoSetpoint_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetSetpointCO2, _NutCaiCO2Setpoint_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetFanSpeed, _NutCaiTocDoQuat_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage103Wakeup, _NutThucDay_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage73_EnterService, _NutEnterPageService_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage107_EnterDiagnostic, _NutEnterPageDiagnostic_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage73_EnterService, _NutEnterPageService_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage107_EnterDiagnostic, _NutEnterPageDiagnostic_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage107_EnterPID, _NutEnterPagePID_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage103_ExitPID, _NutExitPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKP, _NutSetKpTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKI, _NutSetKiTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKD, _NutSetKdTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKW, _NutSetKwTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempImax, _NutSetImaxTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempImin, _NutSetIminTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempOutmax, _NutSetOutmaxTempPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempOutmin, _NutSetOutminTempPID_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage107_EnterPID, _NutEnterPagePID_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage103_ExitPID, _NutExitPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKP, _NutSetKpTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKI, _NutSetKiTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKD, _NutSetKdTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempKW, _NutSetKwTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempImax, _NutSetImaxTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempImin, _NutSetIminTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempOutmax, _NutSetOutmaxTempPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetTempOutmin, _NutSetOutminTempPID_, this);
 
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KP, _NutSetKpCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KI, _NutSetKiCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KD, _NutSetKdCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KW, _NutSetKwCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Imax, _NutSetImaxCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Imin, _NutSetIminCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Outmax, _NutSetOutmaxCO2PID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Outmin, _NutSetOutminCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KP, _NutSetKpCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KI, _NutSetKiCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KD, _NutSetKdCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2KW, _NutSetKwCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Imax, _NutSetImaxCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Imin, _NutSetIminCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Outmax, _NutSetOutmaxCO2PID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetCO2Outmin, _NutSetOutminCO2PID_, this);
 
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetPerimeterOutmax, _NutSetPerimeterPID_, this);
-    DWIN::addButtonEvent(_VPAddressPage103PID, _KeyValueSetDoorOutmax, _NutSetDoorPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetPerimeterOutmax, _NutSetPerimeterPID_, this);
+    addButtonEvent(_VPAddressPage103PID, _KeyValueSetDoorOutmax, _NutSetDoorPID_, this);
 
-    DWIN::addButtonEvent(_VPAddressSegmentSetpointButton, _AllKeyValue, _NutEditSetpointTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentSetpointCO2Button, _AllKeyValue, _NutEditSetpointCO2TrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentFanSpeedButton, _AllKeyValue, _NutEditTocDoQuatTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentTempMinButton, _AllKeyValue, _NutEditTempMinTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentTempMaxButton, _AllKeyValue, _NutEditTempMaxTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentCO2MinButton, _AllKeyValue, _NutEditCO2MinTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentCO2MaxButton, _AllKeyValue, _NutEditCO2MaxTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentSetpointButton, _AllKeyValue, _NutEditSetpointTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentSetpointCO2Button, _AllKeyValue, _NutEditSetpointCO2TrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentFanSpeedButton, _AllKeyValue, _NutEditTocDoQuatTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentTempMinButton, _AllKeyValue, _NutEditTempMinTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentTempMaxButton, _AllKeyValue, _NutEditTempMaxTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentCO2MinButton, _AllKeyValue, _NutEditCO2MinTrangSegment_, this);
+    addButtonEvent(_VPAddressSegmentCO2MaxButton, _AllKeyValue, _NutEditCO2MaxTrangSegment_, this);
 
-    // DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSegment, _SegmentButton_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentFunctionButton, _AllKeyValue, _CacNutThaoTacTrongTrangEditSegment_, this);
+    addButtonEvent(_VPAddressSegmentFunctionButton, _AllKeyValue, _CacNutThaoTacTrongTrangEditSegment_, this);
 
-    DWIN::addButtonEvent(_VPAddressSegmentDelayOffButton, _AllKeyValue, _NutEditThoiGianTatTrangSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetDay, _NutVaoTrangNhapNgay_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetMonth, _NutVaoTrangNhapThang_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetYear, _NutVaoTrangNhapNam_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetHour, _NutVaoTrangNhapGio_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetMinute, _NutVaoTrangNhapPhut_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSegmentDelayOff, _NutEnterTrongCaiDatThoiGianTatCuaSegment_, this);
-    DWIN::addButtonEvent(_VPAddressSegmentSelectButton, _AllKeyValue, _NutChonSegment_, this);
+    addButtonEvent(_VPAddressSegmentDelayOffButton, _AllKeyValue, _NutEditThoiGianTatTrangSegment_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetDay, _NutVaoTrangNhapNgay_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetMonth, _NutVaoTrangNhapThang_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetYear, _NutVaoTrangNhapNam_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetHour, _NutVaoTrangNhapGio_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueSetMinute, _NutVaoTrangNhapPhut_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSegmentDelayOff, _NutEnterTrongCaiDatThoiGianTatCuaSegment_, this);
+    addButtonEvent(_VPAddressSegmentSelectButton, _AllKeyValue, _NutChonSegment_, this);
 
     // calib
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueCalib, _NutVaoChucNangChonCalib_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueChooseCalibTemp, _NutVaoChucNangCalibNhiet_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueChooseCalibCO2, _NutVaoChucNangCalibCO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueCalib, _NutVaoChucNangChonCalib_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueChooseCalibTemp, _NutVaoChucNangCalibNhiet_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueChooseCalibCO2, _NutVaoChucNangCalibCO2_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueEditCalibTemp, _NutEditCalibTemp_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterCalibTemp, _NutEnterTrangCalibNhiet_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueResetCalibTemp, _NutResetHeSoCalibNhiet_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_CalibPerimeter, _NutEditHeSoCalibPerimeter_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_CalibDoor, _NutEditHeSoCalibDoor_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueEditCalibTemp, _NutEditCalibTemp_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterCalibTemp, _NutEnterTrangCalibNhiet_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueResetCalibTemp, _NutResetHeSoCalibNhiet_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_CalibPerimeter, _NutEditHeSoCalibPerimeter_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_CalibDoor, _NutEditHeSoCalibDoor_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueEditCalibCO2, _NutEditCalibCO2_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterCalibCO2, _NutEnterTrangCalibCO2_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueResetCalibCO2, _NutResetHeSoCalibCO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueEditCalibCO2, _NutEditCalibCO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterCalibCO2, _NutEnterTrangCalibCO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueResetCalibCO2, _NutResetHeSoCalibCO2_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib1, _NutSetChonDiemCalib1Temp_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib2, _NutSetChonDiemCalib2Temp_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib3, _NutSetChonDiemCalib3Temp_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib1, _NutSetChonDiemCalib1Temp_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib2, _NutSetChonDiemCalib2Temp_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage78_calib3, _NutSetChonDiemCalib3Temp_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib1, _NutSetChonDiemCalib1CO2_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib2, _NutSetChonDiemCalib2CO2_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib3, _NutSetChonDiemCalib3CO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib1, _NutSetChonDiemCalib1CO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib2, _NutSetChonDiemCalib2CO2_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValuePage102_calib3, _NutSetChonDiemCalib3CO2_, this);
 
     // RTC
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetTimeRTC, _NutCaiDatThoiGianRTC_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSetRTC, _NutEnterTrangCaiRTC_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetTimeRTC, _NutCaiDatThoiGianRTC_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSetRTC, _NutEnterTrangCaiRTC_, this);
 
     // alarm
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueAlarm, _NutCaiCanhBaoNhietDo_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterSetAlarm, _NutEnterTrangCaiCanhBaoNhietDo_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmBelow, _NutCaiCanhBaoNhietDoThap_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmAbove, _NutCaiCanhBaoNhietDoCao_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmUnderCO2, _NutCaiCanhBaoCO2Thap_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmOverCO2, _NutCaiCanhBaoCO2Cao_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueAlarm, _NutCaiCanhBaoNhietDo_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueEnterSetAlarm, _NutEnterTrangCaiCanhBaoNhietDo_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmBelow, _NutCaiCanhBaoNhietDoThap_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmAbove, _NutCaiCanhBaoNhietDoCao_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmUnderCO2, _NutCaiCanhBaoCO2Thap_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetAlarmOverCO2, _NutCaiCanhBaoCO2Cao_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueProgram, _NutVaoChucNangProgram_, this);
-    DWIN::addButtonEvent(_VPAddressSelectProgram, _AllKeyValue, _NutChonProgram_, this);
-    DWIN::addButtonEvent(_VPAddressProgramFunction, _AllKeyValue, _CacNutThaoTacTrongTrangProgram_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueProgram, _NutVaoChucNangProgram_, this);
+    addButtonEvent(_VPAddressSelectProgram, _AllKeyValue, _NutChonProgram_, this);
+    addButtonEvent(_VPAddressProgramFunction, _AllKeyValue, _CacNutThaoTacTrongTrangProgram_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetDelayOff, _NutCaiThoiGianTatMay_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSetDelayOff, _NutEnterCaiThoiGianTatMay_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSetDelayOff, _NutCaiThoiGianTatMay_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterSetDelayOff, _NutEnterCaiThoiGianTatMay_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueRunButton, _NutRun_, this);
-    DWIN::addButtonEvent(_VPAddressSwitchDelayOff, _AllKeyValue, _NutThayDoiTrangThaiChucNangHenGioTat_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueRunButton, _NutRun_, this);
+    addButtonEvent(_VPAddressSwitchDelayOff, _AllKeyValue, _NutThayDoiTrangThaiChucNangHenGioTat_, this);
 
-    DWIN::addButtonEvent(_VPAddressEnterRunProgram, _AllKeyValue, _NutEnterTrongTrangProgram_, this);
+    addButtonEvent(_VPAddressEnterRunProgram, _AllKeyValue, _NutEnterTrongTrangProgram_, this);
 
-    DWIN::addButtonEvent(_VPAddressEnterProgramLoop, _AllKeyValue, _NutEnterChayProgramVoiChuKyDuocChon_, this);
-    DWIN::addButtonEvent(_VPAddressInfButton, _AllKeyValue, _NutInfTrongTrangChonChuKyChayProgram_, this);
-    // DWIN::addButtonEvent(_VPAddressSetProgramLoop, _AllKeyValue, _NutCaiChuKyChayProgram_, this);
+    addButtonEvent(_VPAddressEnterProgramLoop, _AllKeyValue, _NutEnterChayProgramVoiChuKyDuocChon_, this);
+    addButtonEvent(_VPAddressInfButton, _AllKeyValue, _NutInfTrongTrangChonChuKyChayProgram_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueSterilization, _NutVaoChucNangTietTrung_, this);
-    DWIN::addButtonEvent(_VPAddressCaiThoiGianTietTrung, _AllKeyValue, _NutCaiThoiGianTietTrung_, this);
-    DWIN::addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterCaiThoiGianTietTrung, _NutEnterCaiThoiGianTietTrung_, this);
-    DWIN::addButtonEvent(_VPAddressCaiNhietDoTietTrung, _AllKeyValue, _NutCaiNhietDoTietTrung_, this);
-    DWIN::addButtonEvent(_VPAddressNextTrongTrangTietTrung, _AllKeyValue, _NutNextTrongCaiTietTrung_, this);
-    DWIN::addButtonEvent(_VPAddressEnterCaiTietTrung, _AllKeyValue, _NutEnterCaiTietTrung_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueSterilization, _NutVaoChucNangTietTrung_, this);
+    addButtonEvent(_VPAddressCaiThoiGianTietTrung, _AllKeyValue, _NutCaiThoiGianTietTrung_, this);
+    addButtonEvent(_VPAddressSetTimeButton, _KeyValueEnterCaiThoiGianTietTrung, _NutEnterCaiThoiGianTietTrung_, this);
+    addButtonEvent(_VPAddressCaiNhietDoTietTrung, _AllKeyValue, _NutCaiNhietDoTietTrung_, this);
+    addButtonEvent(_VPAddressNextTrongTrangTietTrung, _AllKeyValue, _NutNextTrongCaiTietTrung_, this);
+    addButtonEvent(_VPAddressEnterCaiTietTrung, _AllKeyValue, _NutEnterCaiTietTrung_, this);
 
-    DWIN::addButtonEvent(_VPAddressNumericKeypad, _AllKeyValue, _XuLyBanPhim_, this);
-    DWIN::addButtonEvent(_VPAddressWarningReturn, _AllKeyValue, _NutTroVeTrongTrangWarning_, this);
-    DWIN::addButtonEvent(_VPAddressResetGraph, _AllKeyValue, _NutXoaDoThi_, this);
+    addButtonEvent(_VPAddressNumericKeypad, _AllKeyValue, _XuLyBanPhim_, this);
+    addButtonEvent(_VPAddressWarningReturn, _AllKeyValue, _NutTroVeTrongTrangWarning_, this);
+    addButtonEvent(_VPAddressResetGraph, _AllKeyValue, _NutXoaDoThi_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueDataRecord, _NutDataRecord_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueExport, _NutExportData_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueDataRecord, _NutDataRecord_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueExport, _NutExportData_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueUpdate, _NutVaoChucNangUpdate_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutChonPhuongThucUpdate, _AllKeyValue, _CacNutChonPhuongThucUpdate_, this);
-    DWIN::addButtonEvent(_VPAddressCacNutTrangFOTA, _AllKeyValue, _CacNutTrangFOTA_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueUpdate, _NutVaoChucNangUpdate_, this);
+    addButtonEvent(_VPAddressCacNutChonPhuongThucUpdate, _AllKeyValue, _CacNutChonPhuongThucUpdate_, this);
+    addButtonEvent(_VPAddressCacNutTrangFOTA, _AllKeyValue, _CacNutTrangFOTA_, this);
 
-    // DWIN::addButtonEvent(_VPAddressThanhCuonDoThi, _AllKeyValue, _ThanhCuonDoThi_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueWifi, _NutVaoChucNangWiFi_, this); // truc them
+    addButtonEvent(_VPAddressCacNutTrangWiFi, _AllKeyValue, _CacNutTrangWiFi_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueWifi, _NutVaoChucNangWiFi_, this); // truc them
-    DWIN::addButtonEvent(_VPAddressCacNutTrangWiFi, _AllKeyValue, _CacNutTrangWiFi_, this);
+    addButtonEvent(_VPAddressCacNutNhan, _KeyValueAdminPassword, _NutVaoChucNangThayDoiAdminPassword_, this); // truc them
+    addButtonEvent(_VPAddressCacNutTrangAdminPassword, _AllKeyValue, _CacNutTrangThayDoiAdminPassword_, this);
 
-    DWIN::addButtonEvent(_VPAddressCacNutNhan, _KeyValueAdminPassword, _NutVaoChucNangThayDoiAdminPassword_, this); // truc them
-    DWIN::addButtonEvent(_VPAddressCacNutTrangAdminPassword, _AllKeyValue, _CacNutTrangThayDoiAdminPassword_, this);
-
-    _lock = xSemaphoreCreateMutex();
-    _createHmiListenTask(this);
-
-    _hmiSerial->onReceive(_hmiUartEvent, true);
     DWIN::restartHMI();
-    // DWIN::echoEnabled(true);
-    DWIN::returnWord(true);
+    DWIN::begin();
+    DWIN::crcEnabled(true);
+    DWIN::setupTouchCallBack(&xQueueTouch, 5);
+    xTaskCreatePinnedToCore(xHMITouchTask, "HMItouch", u32StackDepthReceive, (void *)this, configMAX_PRIORITIES - 2, &xHMITouchHdl, xCoreID);
 }
 
-void HMI::_hmiUartEvent(void)
+void HMI::addButtonEvent(uint16_t vpAddr, int32_t lastBytes, HmiButtonEventCB_t ButtonEventCallback, void *args)
 {
-    xTaskNotify(_hmiListenTaskHandle, 0x01, eSetBits);
+    HmiEvent event;
+    event.vpAddr = vpAddr;
+    event.lastBytes = lastBytes;
+    event.callBack.buttonEvent = ButtonEventCallback;
+    event.eventType = hmiBUTTON;
+    event.args = args;
+    _eventList.push_back(event);
 }
 
-void HMI::_hmiListenTask(void *args)
+void HMI::xHMITouchTask(void *ptr)
 {
-    HMI *hmiPtr = static_cast<HMI *>(args);
+    HMI *pHMI = (HMI *)ptr;
+
     uint32_t notifyNum;
-    for (;;)
+    TouchFrame_t touchRev;
+    while (true)
     {
-        xTaskNotifyWait(pdFALSE, pdTRUE, &notifyNum, portMAX_DELAY);
-
-        // xSemaphoreTake(hmiPtr->_lock, portMAX_DELAY);
-        hmiPtr->DWIN::listen();
-        // xSemaphoreGive(hmiPtr->_lock);
+        xQueueReceive(pHMI->xQueueTouch, &touchRev, portMAX_DELAY);
+        pHMI->xHandleInHMITask(touchRev);
     }
 }
 
-void HMI::_createHmiListenTask(void *args)
+void HMI::xHandleInHMITask(TouchFrame_t xTouchEventData)
 {
-    xTaskCreateUniversal(_hmiListenTask, "HMI Task", 5120, this, (configMAX_PRIORITIES - 1), &_hmiListenTaskHandle, -1);
-    if (_hmiListenTaskHandle == NULL)
+    Serial.printf("%s nhận %x %x\n", __func__, xTouchEventData.u16VPaddress, xTouchEventData.u16KeyValue);
+    EventInfo info;
+    info.vpAddr = xTouchEventData.u16VPaddress;
+    info.lastBytes = xTouchEventData.u16KeyValue; 
+    for (HmiEvent eventElemen : _eventList)
     {
-        log_e(" -- HMI Task not Created!");
+        switch (eventElemen.eventType)
+        {
+        case hmiBUTTON:
+            if (eventElemen.vpAddr == info.vpAddr && eventElemen.lastBytes == 0xffff)
+            {
+                eventElemen.callBack.buttonEvent(info.lastBytes, eventElemen.args);
+            }
+            else if (eventElemen.vpAddr == info.vpAddr && eventElemen.lastBytes == info.lastBytes)
+            {
+                eventElemen.callBack.buttonEvent(info.lastBytes, eventElemen.args);
+            }
+            break;
+        case hmiTEXT:
+            if (eventElemen.vpAddr == info.vpAddr)
+            {
+                eventElemen.callBack.textReceivedEvent("hasn't process TextEvent yet", eventElemen.args); // truyen text nhan duoc
+            }
+            break;
+        default:
+            Serial.println("The event has not been registered");
+            break;
+        }
+        delay(1);
     }
 }
 
@@ -250,11 +273,11 @@ void HMI::_XuLyBanPhim_(int32_t lastBytes, void *args)
         hmiPtr->_CapslockEnable = !hmiPtr->_CapslockEnable;
         if (hmiPtr->_CapslockEnable)
         {
-            hmiPtr->setVP(_VPAddressIconLowercaseKeyboard, 1);
+            hmiPtr->setVPByte(_VPAddressIconLowercaseKeyboard, 1);
         }
         else
         {
-            hmiPtr->setVP(_VPAddressIconLowercaseKeyboard, 0);
+            hmiPtr->setVPByte(_VPAddressIconLowercaseKeyboard, 0);
         }
     }
     else if (lastBytes == 0x0D) // Nút Enter
@@ -1063,16 +1086,16 @@ void HMI::_NutChonSegment_(int32_t lastBytes, void *args)
     {
         if (hmiPtr->_ChiMucPhanDoanTruocDo != lastBytes)
         {
-            hmiPtr->setVP(_VPAddressSegmentIconTick1 + lastBytes, true);
+            hmiPtr->setVPByte(_VPAddressSegmentIconTick1 + lastBytes, true);
             if (hmiPtr->_ChiMucPhanDoanTruocDo != 0xffff)
             {
-                hmiPtr->setVP(_VPAddressSegmentIconTick1 + hmiPtr->_ChiMucPhanDoanTruocDo, false);
+                hmiPtr->setVPByte(_VPAddressSegmentIconTick1 + hmiPtr->_ChiMucPhanDoanTruocDo, false);
             }
             hmiPtr->_ChiMucPhanDoanTruocDo = lastBytes;
         }
         else
         {
-            hmiPtr->setVP(_VPAddressSegmentIconTick1 + lastBytes, false);
+            hmiPtr->setVPByte(_VPAddressSegmentIconTick1 + lastBytes, false);
             hmiPtr->_ChiMucPhanDoanTruocDo = 0xffff;
         }
     }
@@ -1154,7 +1177,7 @@ void HMI::HienThiDuLieuSegmentTrenHang(uint8_t row, uint8_t index, float setpoin
     this->setText(_VPAddressSegmentTempMaxText1 + row * 5, String(tempMax, 1));
     this->setText(_VPAddressSegmentCO2MinText1 + row * 5, String(CO2Min, 1));
     this->setText(_VPAddressSegmentCO2MaxText1 + row * 5, String(CO2Max, 1));
-    this->setVP(_VPAddressSegmentIconTick1 + row, false);
+    this->setVPByte(_VPAddressSegmentIconTick1 + row, false);
     this->_ChiMucPhanDoanTruocDo = 0xffff;
 }
 
@@ -1170,7 +1193,7 @@ void HMI::XoaDuLieuHienThiSegmentTrenHang(uint8_t row)
     this->setText(_VPAddressSegmentTempMaxText1 + row * 5, "");
     this->setText(_VPAddressSegmentCO2MinText1 + row * 5, "");
     this->setText(_VPAddressSegmentCO2MaxText1 + row * 5, "");
-    this->setVP(_VPAddressSegmentIconTick1 + row, false);
+    this->setVPByte(_VPAddressSegmentIconTick1 + row, false);
     this->_ChiMucPhanDoanTruocDo = 0xffff;
 }
 
@@ -2076,7 +2099,7 @@ void HMI::VeDoThi(BaseProgram_t data, time_t time)
     // Serial.printf("%u %u\t min % u, max % u, VD % u, Mul % u\tmin % u, max % u, VD % u, Mul % u\t\n", temp, CO2,
     //     _DuLieuDoThiNhietDo.minValue, _DuLieuDoThiNhietDo.maxValue, _DuLieuDoThiNhietDo.VDCentral, _DuLieuDoThiNhietDo.MulY,
     //     _DuLieuDoThiCO2.minValue, _DuLieuDoThiCO2.maxValue, _DuLieuDoThiCO2.VDCentral, _DuLieuDoThiCO2.MulY);
-    sendIntArray(0x82, arrayy, 14);
+    //! sendIntArray(0x82, arrayy, 14);
 }
 
 void HMI::XoaDoThi(BaseProgram_t data)
@@ -2166,31 +2189,31 @@ void HMI::HienThiThoiGianRTC(int ngay, int thang, int nam, int gio, int phut, in
 
 void HMI::HienThiIconQuat(bool TrangThai)
 {
-    setVP(_VPAddressIconQuat, TrangThai);
+    setVPByte(_VPAddressIconQuat, TrangThai);
 }
 
 void HMI::HienThiIconCua(bool TrangThai)
 {
-    setVP(_VPAddressIconCua, TrangThai);
+    setVPByte(_VPAddressIconCua, TrangThai);
 }
 
 void HMI::HienThiIconGiaNhiet(bool TrangThai)
 {
-    setVP(_VPAddressIconGiaNhiet, TrangThai);
+    setVPByte(_VPAddressIconGiaNhiet, TrangThai);
 }
 
 void HMI::HienThiIconVanCO2(bool TrangThai)
 {
-    setVP(_VPAddressIconVanCO2, TrangThai);
+    setVPByte(_VPAddressIconVanCO2, TrangThai);
 }
 
 void HMI::HienThiIconTrangThaiRun(bool TrangThai)
 {
-    setVP(_VPAddressIconRun, TrangThai);
+    setVPByte(_VPAddressIconRun, TrangThai);
 }
 void HMI::HienThiIconOnOffDelayOff(bool TrangThai)
 {
-    setVP(_VPAddressIconSwitchDelayOff, TrangThai);
+    setVPByte(_VPAddressIconSwitchDelayOff, TrangThai);
 }
 void HMI::HienThiChuongTrinhDangChay(String text)
 {
@@ -2232,32 +2255,32 @@ void HMI::Buzzer(int value)
 
 void HMI::HienThiIconSegment(bool TrangThai)
 {
-    setVP(_VPAddressIconSegment, TrangThai);
+    setVPByte(_VPAddressIconSegment, TrangThai);
 }
 
 void HMI::HienThiIconRemoveWater(bool TrangThai)
 {
-    setVP(_VPAddressIconTickRemoveWater, TrangThai);
+    setVPByte(_VPAddressIconTickRemoveWater, TrangThai);
 }
 
 void HMI::HienThiIconRemoveSample(bool TrangThai)
 {
-    setVP(_VPAddressIconTickRemoveSample, TrangThai);
+    setVPByte(_VPAddressIconTickRemoveSample, TrangThai);
 }
 
 void HMI::HienThiIconConfirm1(bool TrangThai)
 {
-    setVP(_VPAddressIconTickConfirm1, TrangThai);
+    setVPByte(_VPAddressIconTickConfirm1, TrangThai);
 }
 
 void HMI::HienThiIconConfirm2(bool TrangThai)
 {
-    setVP(_VPAddressIconTickConfirm2, TrangThai);
+    setVPByte(_VPAddressIconTickConfirm2, TrangThai);
 }
 
 void HMI::HienThiIconUSB(bool TrangThai)
 {
-    setVP(_VPAddressIconUSB, TrangThai);
+    setVPByte(_VPAddressIconUSB, TrangThai);
 }
 
 void HMI::HienThiVongLapChuongTrinhConLai(int GiaTri, int Tong)
@@ -2326,7 +2349,7 @@ void HMI::HienThiThanhLoading(uint8_t PhanTram)
     if (PhanTramHienThiTruocDo != PhanTram / 2)
     {
         PhanTramHienThiTruocDo = PhanTram / 2;
-        setVP(_VPAddressIconLoading, PhanTramHienThiTruocDo);
+        setVPByte(_VPAddressIconLoading, PhanTramHienThiTruocDo);
     }
 }
 
@@ -2462,10 +2485,10 @@ void HMI::_NutVaoChucNangTietTrung_(int32_t lastBytes, void *args)
     }
     hmiPtr->setText(_VPAddressTextNhietDoTietTrung, String(hmiPtr->_NhietDoTietTrung, 0));
     // hmiPtr->setText(_VPAddressTextNhietDoTietTrung, "180");
-    hmiPtr->setVP(_VPAddressIconTickRemoveWater, false);
-    hmiPtr->setVP(_VPAddressIconTickRemoveSample, false);
-    hmiPtr->setVP(_VPAddressIconTickConfirm1, false);
-    hmiPtr->setVP(_VPAddressIconTickConfirm2, false);
+    hmiPtr->setVPByte(_VPAddressIconTickRemoveWater, false);
+    hmiPtr->setVPByte(_VPAddressIconTickRemoveSample, false);
+    hmiPtr->setVPByte(_VPAddressIconTickConfirm1, false);
+    hmiPtr->setVPByte(_VPAddressIconTickConfirm2, false);
     hmiPtr->setPage(_SterilizationPage);
 }
 
@@ -2510,7 +2533,7 @@ void HMI::_NutNextTrongCaiTietTrung_(int32_t lastBytes, void *args)
     HMI *hmiPtr = (HMI *)args;
     if (hmiPtr->_DemTrangThaiNext < 2)
     {
-        hmiPtr->setVP(_VPAddressIconTickRemoveWater + hmiPtr->_DemTrangThaiNext, 1);
+        hmiPtr->setVPByte(_VPAddressIconTickRemoveWater + hmiPtr->_DemTrangThaiNext, 1);
         hmiPtr->_DemTrangThaiNext++;
     }
     else

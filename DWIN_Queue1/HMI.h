@@ -12,7 +12,7 @@
  *
  */
 
-#include "DWIN_custom.h"
+#include "DWIN.h"
 #include "freertos/queue.h"
 #include <vector>
 #include <TimeLib.h>
@@ -20,8 +20,6 @@
 #include "HMIparam.h"
 #include <Arduino.h>
 #include <ringBuffer.h>
-#include <07_Heater.h>
-#include <09_concentration.h>
 
 typedef enum
 {
@@ -201,7 +199,7 @@ class HMI : public DWIN
 {
 public:
     HMI(HardwareSerial &port, uint8_t receivePin, uint8_t transmitPin, long baud = DWIN_DEFAULT_BAUD_RATE);
-    void KhoiTao(void);
+    void KhoiTao(uint32_t u32StackDepthReceive = 5120, BaseType_t xCoreID = tskNO_AFFINITY);
     void DangKyHamSetCallback(hmiSetData_t function);
     void DangKyHamGetCallback(hmiGetData_t function);
 
@@ -280,10 +278,8 @@ public:
     }
 
 protected:
-    HardwareSerial *_hmiSerial;
     hmiSetData_t _hmiSetDataCallback;
     hmiGetData_t _hmiGetDataCallback;
-    SemaphoreHandle_t _lock;
 
     String _ChuoiBanPhimDangNhap;
     bool _CapslockEnable;
@@ -308,10 +304,6 @@ protected:
     DuLieuDoThi_t _DuLieuDoThiCO2;
 
     RingBuffer _bufferThoiGianDoThi = RingBuffer(7, sizeof(time_t));
-
-    void _createHmiListenTask(void *args);
-    static void _hmiListenTask(void *args);
-    static void _hmiUartEvent(void);
 
     static void _NutVaoChucNangChonCalib_(int32_t lastBytes, void *args);
     static void _NutVaoChucNangCalibNhiet_(int32_t lastBytes, void *args);
@@ -428,5 +420,41 @@ protected:
     static void _CacNutTrangWiFi_(int32_t lastBytes, void *args);
     static void _NutVaoChucNangThayDoiAdminPassword_(int32_t lastBytes, void *args);
     static void _CacNutTrangThayDoiAdminPassword_(int32_t lastBytes, void *args);
+
+    // các biến và hàm hệ thống quản lý 
+        typedef void (*HmiButtonEventCB_t)(int32_t lastBytes, void *args);
+    typedef void (*HmiTextReceivedEventCB_t)(String text, void *args);
+    typedef enum
+    {
+        hmiBUTTON,
+        hmiTEXT,
+    } eventType_t;
+
+    class EventInfo
+    {
+    public:
+        uint16_t vpAddr;
+        int32_t lastBytes;
+        eventType_t eventType;
+        String data;
+        void *args;
+    };
+
+    class HmiEvent : public EventInfo
+    {
+    public:
+        union
+        {
+            HmiButtonEventCB_t buttonEvent;
+            HmiTextReceivedEventCB_t textReceivedEvent;
+        } callBack;
+    };
+    std::vector<HmiEvent> _eventList;
+    std::vector<uint8_t> _rawData;
+    TaskHandle_t xHMITouchHdl;
+    QueueHandle_t xQueueTouch;
+    void addButtonEvent(uint16_t vpAddr, int32_t lastBytes, HmiButtonEventCB_t ButtonEventCallback, void* args);
+    static void xHMITouchTask(void *ptr);
+    void xHandleInHMITask(TouchFrame_t xTouchEventData);
 };
 #endif
