@@ -1,9 +1,9 @@
 /**
  * @file DWIN.h
- * @author Trung Thao (you@domain.com)
+ * @author Trung Thao (nguyentrungthao1412@gmail.com)
  * @brief
  * @version 0.1
- * @date 2025-04-21
+ * @date 2025-07-01
  *
  * @copyright Copyright (c) 2025
  *
@@ -18,6 +18,12 @@
 #include <HardwareSerial.h>
 #include <FS.h>
 #include <list>
+
+#define CMD_HEAD1 0x5A
+#define CMD_HEAD2 0xA5
+#define CMD_WRITE 0x82
+#define CMD_READ 0x83
+#define CMD_TOUCH 0x83
 
 #define DWIN_DEFAULT_BAUD_RATE 115200
 #define ARDUINO_RX_PIN 10
@@ -42,7 +48,7 @@ public:
 
   DWIN(HardwareSerial &port, uint8_t receivePin = ARDUINO_RX_PIN, uint8_t transmitPin = ARDUINO_TX_PIN, long baud = DWIN_DEFAULT_BAUD_RATE, uint16_t sizeLeaseQueue = 10);
 
-  void begin(uint32_t u32StackDepthReceive = 4096, BaseType_t xCoreID = tskNO_AFFINITY);
+  void begin(uint32_t u32StackDepthReceive = 4096, BaseType_t xNPriority = (configMAX_PRIORITIES - 1U));
   void setupTouchCallBack(QueueHandle_t *pxTouchQueue, uint16_t sizeOfQueue);
   void setupTouchCallBack(hmiListener callBackTouch);
 
@@ -84,6 +90,7 @@ public:
 
   // set Data on VP Address
   esp_err_t setText(uint16_t address, String textData);
+  esp_err_t setText(uint16_t VPaddress, String textData, uint16_t TextLength);
   // get Data on VP Address
   String getText(uint16_t vpAddress, uint8_t length);
 
@@ -110,6 +117,8 @@ public:
   esp_err_t sendGraphValue(uint16_t channel, const uint16_t *values, uint8_t valueCount);
   esp_err_t resetGraph(uint8_t channel);
 
+  esp_err_t basicGraph(uint16_t VpAddress, uint16_t X, uint16_t Y, uint16_t Color); 
+
   // Chỉ trả về False khi xảy ra lỗi trong quá trình cập nhật
   // Các trường hợp không tìm thấy thư mục hoặc file cập nhật
   // Tức là không có bản cập nhật mới sẽ trả về true
@@ -123,6 +132,7 @@ private:
   long _baud;   // DWIN HMI Baud rate
   bool _echo;   // Response Command Show
   bool _crc;
+  int8_t u8CountFalse;
   hmiListener listenerCallback;
   QueueHandle_t xQueueTouch;
   QueueHandle_t xQueueCommandReadWrite;
