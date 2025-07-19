@@ -31,11 +31,12 @@ bool USBMSCHOST::begin()
             assert(this->usb_flash_queue);
         }
         
-        if(this->usb_background_task == NULL) {
-            xTaskCreate(usb_background_task_cb, "usb_background_task_cb", 4096, (void*)this, 3, &this->usb_background_task);
-            ESP_LOGI(TAG, "Create: usb_background_task_cb");
-            assert(this->usb_background_task);
-        }
+        //! xóa task nền vì nó khởi tạo usb host device
+        // if(this->usb_background_task == NULL) {
+        //     xTaskCreate(usb_background_task_cb, "usb_background_task_cb", 4096, (void*)this, 3, &this->usb_background_task);
+        //     ESP_LOGI(TAG, "Create: usb_background_task_cb");
+        //     assert(this->usb_background_task);
+        // }
 
         ESP_LOGI(TAG, "Waiting for USB flash drive to be connected");
         if(this->usb_handle_task == NULL) {
@@ -68,7 +69,7 @@ bool USBMSCHOST::isConnected()
     if (usb_state.id == USB_READY) return true;
     else return false;
 }
-
+//! hàm này sẽ thông báo cho 
 void USBMSCHOST::msc_event_cb(const msc_host_event_t* event, void* arg)
 {
     USBMSCHOST* usb_msc_host_ptr = static_cast<USBMSCHOST*>(arg);
@@ -165,6 +166,7 @@ void USBMSCHOST::usb_handle_task_cb(void* pvParameters)
     vTaskDelete(NULL);
 }
 
+//! task này sẽ không được chạy vì để main quản lý 
 void USBMSCHOST::usb_background_task_cb(void* agrs)
 {
     USBMSCHOST* usb_msc_host_ptr = static_cast<USBMSCHOST*>(agrs);
@@ -174,8 +176,9 @@ void USBMSCHOST::usb_background_task_cb(void* agrs)
         flagInstallUSB = true;
     }
 
-    usb_msc_host_ptr->msc_config.callback = msc_event_cb;
+    usb_msc_host_ptr->msc_config.callback = msc_event_cb; //TODO ĐÂY LÀ CALLBACK CỦA CLIENT MSC
     usb_msc_host_ptr->msc_config.callback_arg = agrs;
+    //! đăng ký client ở đây 
     ESP_ERROR_CHECK(msc_host_install((const msc_host_driver_config_t *)&usb_msc_host_ptr->msc_config));
 
     bool has_clients = true;

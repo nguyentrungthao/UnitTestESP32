@@ -18,7 +18,6 @@
 class usbHostMaster : public EspUsbHost, public USBMSCHOST
 {
 public:
-    usbHostMaster();
     void begin();
 private:
 };
