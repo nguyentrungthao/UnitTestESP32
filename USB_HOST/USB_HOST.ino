@@ -19,7 +19,7 @@
 
 #ifdef CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK
 #define ENABLE_ENUM_FILTER_CALLBACK
-#endif  // CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK
+#endif // CONFIG_USB_HOST_ENABLE_ENUM_FILTER_CALLBACK
 
 extern void class_driver_task(void *arg);
 extern void class_driver_client_deregister(void);
@@ -33,7 +33,8 @@ QueueHandle_t app_event_queue = NULL;
  *
  * APP_EVENT            - General event, which is APP_QUIT_PIN press event in this example.
  */
-typedef enum {
+typedef enum
+{
   APP_EVENT = 0,
 } app_event_group_t;
 
@@ -42,7 +43,8 @@ typedef enum {
  *
  * This event is used for delivering events from callback to a task.
  */
-typedef struct {
+typedef struct
+{
   app_event_group_t event_group;
 } app_event_queue_t;
 
@@ -53,18 +55,21 @@ typedef struct {
  *
  * @param[in] arg Unused
  */
-static void gpio_cb(void *arg) {
+static void gpio_cb(void *arg)
+{
   const app_event_queue_t evt_queue = {
-    .event_group = APP_EVENT,
+      .event_group = APP_EVENT,
   };
 
   BaseType_t xTaskWoken = pdFALSE;
 
-  if (app_event_queue) {
+  if (app_event_queue)
+  {
     xQueueSendFromISR(app_event_queue, &evt_queue, &xTaskWoken);
   }
 
-  if (xTaskWoken == pdTRUE) {
+  if (xTaskWoken == pdTRUE)
+  {
     portYIELD_FROM_ISR();
   }
 }
@@ -84,60 +89,72 @@ static void gpio_cb(void *arg) {
  * - false: USB device will not be enumerated
  */
 #ifdef ENABLE_ENUM_FILTER_CALLBACK
-static bool set_config_cb(const usb_device_desc_t *dev_desc, uint8_t *bConfigurationValue) {
+static bool set_config_cb(const usb_device_desc_t *dev_desc, uint8_t *bConfigurationValue)
+{
   // If the USB device has more than one configuration, set the second configuration
-  if (dev_desc->bNumConfigurations > 1) {
+  if (dev_desc->bNumConfigurations > 1)
+  {
     *bConfigurationValue = 2;
-  } else {
+  }
+  else
+  {
     *bConfigurationValue = 1;
   }
 
   // Return true to enumerate the USB device
   return true;
 }
-#endif  // ENABLE_ENUM_FILTER_CALLBACK
+#endif // ENABLE_ENUM_FILTER_CALLBACK
 
 /**
  * @brief Start USB Host install and handle common USB host library events while app pin not low
  *
  * @param[in] arg  Not used
  */
-static void usb_host_lib_task(void *arg) {
+static void usb_host_lib_task(void *arg)
+{
   ESP_LOGI(TAG, "Installing USB Host Library");
   usb_host_config_t host_config = {
-    .skip_phy_setup = false,
-    .intr_flags = ESP_INTR_FLAG_LEVEL1,
+      .skip_phy_setup = false,
+      .intr_flags = ESP_INTR_FLAG_LEVEL1,
 #ifdef ENABLE_ENUM_FILTER_CALLBACK
-    .enum_filter_cb = set_config_cb,
-#endif  // ENABLE_ENUM_FILTER_CALLBACK
+      .enum_filter_cb = set_config_cb,
+#endif // ENABLE_ENUM_FILTER_CALLBACK
   };
   ESP_ERROR_CHECK(usb_host_install(&host_config));
 
-  //Signalize the app_main, the USB host library has been installed
+  // Signalize the app_main, the USB host library has been installed
   xTaskNotifyGive((TaskHandle_t)arg);
 
   bool has_clients = true;
   bool has_devices = true;
-  while (has_clients || has_devices) {
+  while (has_clients || has_devices)
+  {
     uint32_t event_flags;
     ESP_ERROR_CHECK(usb_host_lib_handle_events(portMAX_DELAY, &event_flags));
-    if (event_flags & USB_HOST_LIB_EVENT_FLAGS_NO_CLIENTS) {
+    if (event_flags & USB_HOST_LIB_EVENT_FLAGS_NO_CLIENTS)
+    {
       ESP_LOGI(TAG, "No more clients");
       has_clients = false;
-      if (ESP_OK == usb_host_device_free_all()) {
+      if (ESP_OK == usb_host_device_free_all())
+      {
         ESP_LOGI(TAG, "All devices marked as free");
-      } else {
+      }
+      else
+      {
         ESP_LOGI(TAG, "Wait for the ALL FREE EVENT");
       }
     }
-    if (event_flags & USB_HOST_LIB_EVENT_FLAGS_ALL_FREE) {
+    if (event_flags & USB_HOST_LIB_EVENT_FLAGS_ALL_FREE)
+    {
       ESP_LOGI(TAG, "No more devices");
       has_devices = false;
     }
+    ESP_LOGI(TAG, "\t\t\tloop %s", __func__);
   }
   ESP_LOGI(TAG, "No more clients and devices");
 
-  //Uninstall the USB Host Library
+  // Uninstall the USB Host Library
   ESP_ERROR_CHECK(usb_host_uninstall());
   vTaskSuspend(NULL);
 }
@@ -145,19 +162,20 @@ app_event_queue_t evt_queue;
 
 TaskHandle_t host_lib_task_hdl, class_driver_task_hdl;
 
-//Create usb host lib task
+// Create usb host lib task
 BaseType_t task_created;
 
-void setup() {
+void setup()
+{
   ESP_LOGI(TAG, "USB host library example");
 
   // Init BOOT button: Pressing the button simulates app request to exit
   // It will uninstall the class driver and USB Host Lib
   const gpio_config_t input_pin = {
-    .pin_bit_mask = BIT64(APP_QUIT_PIN),
-    .mode = GPIO_MODE_INPUT,
-    .pull_up_en = GPIO_PULLUP_ENABLE,
-    .intr_type = GPIO_INTR_NEGEDGE,
+      .pin_bit_mask = BIT64(APP_QUIT_PIN),
+      .mode = GPIO_MODE_INPUT,
+      .pull_up_en = GPIO_PULLUP_ENABLE,
+      .intr_type = GPIO_INTR_NEGEDGE,
   };
   ESP_ERROR_CHECK(gpio_config(&input_pin));
   ESP_ERROR_CHECK(gpio_install_isr_service(ESP_INTR_FLAG_LEVEL1));
@@ -174,10 +192,10 @@ void setup() {
                                          0);
   assert(task_created == pdTRUE);
 
-  //Wait unit the USB host library is installed
+  // Wait unit the USB host library is installed
   ulTaskNotifyTake(false, 1000);
 
-  //Create class driver task
+  // Create class driver task
   task_created = xTaskCreatePinnedToCore(class_driver_task,
                                          "class",
                                          4096,
@@ -186,19 +204,26 @@ void setup() {
                                          &class_driver_task_hdl,
                                          0);
   assert(task_created == pdTRUE);
-  vTaskDelay(10);  //Add a short delay to let the tasks run
+  vTaskDelay(10); // Add a short delay to let the tasks run
 }
-void loop() {
-  while (1) {
-    if (xQueueReceive(app_event_queue, &evt_queue, portMAX_DELAY)) {
-      if (APP_EVENT == evt_queue.event_group) {
+void loop()
+{
+  while (1)
+  {
+    if (xQueueReceive(app_event_queue, &evt_queue, portMAX_DELAY))
+    {
+      if (APP_EVENT == evt_queue.event_group)
+      {
         // User pressed button
         usb_host_lib_info_t lib_info;
         ESP_ERROR_CHECK(usb_host_lib_info(&lib_info));
-        if (lib_info.num_devices == 0) {
+        if (lib_info.num_devices == 0)
+        {
           // End while cycle
           break;
-        } else {
+        }
+        else
+        {
           ESP_LOGW(TAG, "To shutdown example, remove all USB devices and press button again.");
           // Keep polling
         }
@@ -206,11 +231,11 @@ void loop() {
     }
   }
 
-  //Deregister client
+  // Deregister client
   class_driver_client_deregister();
   vTaskDelay(10);
 
-  //Delete the tasks
+  // Delete the tasks
   vTaskDelete(class_driver_task_hdl);
   vTaskDelete(host_lib_task_hdl);
 
