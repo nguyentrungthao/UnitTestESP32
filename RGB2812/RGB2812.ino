@@ -9,16 +9,16 @@
 
 // Which pin on the Arduino is connected to the NeoPixels?
 // On a Trinket or Gemma we suggest changing this to 1:
-#define LED_PIN HMI_RX_PIN
+#define LED_PIN 1
 
 // How many NeoPixels are attached to the Arduino?
-#define LED_COUNT 4
+#define LED_COUNT 48
 
 // NeoPixel brightness, 0 (min) to 255 (max)
-#define BRIGHTNESS 100  // Set BRIGHTNESS to about 1/5 (max = 255)
+#define BRIGHTNESS 255  // Set BRIGHTNESS to about 1/5 (max = 255)
 
 // Declare our NeoPixel strip object:
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_RGBW + NEO_KHZ400);
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 // Argument 1 = Number of pixels in NeoPixel strip
 // Argument 2 = Arduino pin number (most are valid)
 // Argument 3 = Pixel type flags, add together as needed:
@@ -43,34 +43,34 @@ void setup() {
 }
 
 void loop() {
-  strip.setPixelColor(1, strip.Color(255, 0, 0));  
-  // strip.setPixelColor(1, strip.Color(255, 0, 0)); 
-  strip.show();
-  delay(1000);
-  strip.setPixelColor(1, strip.Color(0, 255, 0));
+  // strip.setPixelColor(1, strip.Color(255, 0, 0));  
+  // // strip.setPixelColor(1, strip.Color(255, 0, 0)); 
+  // strip.show();
+  // delay(1000);
   // strip.setPixelColor(1, strip.Color(0, 255, 0));
-  strip.show();
-  delay(1000);
-  strip.setPixelColor(1, strip.Color(0, 0, 255));
+  // // strip.setPixelColor(1, strip.Color(0, 255, 0));
+  // strip.show();
+  // delay(1000);
   // strip.setPixelColor(1, strip.Color(0, 0, 255));
-  strip.show();
-  delay(1000);
+  // // strip.setPixelColor(1, strip.Color(0, 0, 255));
+  // strip.show();
+  // delay(1000);
 
   // Fill along the length of the strip in various colors...
-  // colorWipe(strip.Color(255, 0, 0), 10);  // Red
-  // delay(5000);
-  // colorWipe(strip.Color(0, 255, 0), 10);  // Green
-  // delay(5000);
-  // colorWipe(strip.Color(0, 0, 255), 10);  // Blue
-  // delay(5000);
-  // colorWipe(strip.Color(0, 0, 0, 255), 10);  // True white (not RGB white)
-  // delay(5000);
+  colorWipe(strip.Color(255, 0, 0), 10);  // Red
+  delay(5000);
+  colorWipe(strip.Color(0, 255, 0), 10);  // Green
+  delay(5000);
+  colorWipe(strip.Color(0, 0, 255), 10);  // Blue
+  delay(5000);
+  colorWipe(strip.Color(0, 0, 0, 255), 10);  // True white (not RGB white)
+  delay(5000);
 
-  // whiteOverRainbow(75, 5);
+  whiteOverRainbow(75, 5);
 
-  // pulseWhite(5);
+  pulseWhite(5);
 
-  // rainbowFade2White(3, 3, 1);
+  rainbowFade2White(3, 3, 1);
 }
 
 // Fill strip pixels one after another with a color. Strip is NOT cleared

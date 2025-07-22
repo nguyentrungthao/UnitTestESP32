@@ -209,5 +209,3 @@ void USBMSCHOST::usb_background_task_cb(void* agrs)
     usb_msc_host_ptr->usb_background_task = NULL;
     vTaskDelete(NULL);
 }
-
-USBMSCHOST USB_MSC_HOST = USBMSCHOST(FSImplPtr(new VFSImpl()));

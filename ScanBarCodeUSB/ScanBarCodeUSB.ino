@@ -1,18 +1,24 @@
 #include "11_ScannerPrinter.h"
-#include "usb_msc_host.h"
-#include "EspUsbHost.h"
+#include "src/usb_msc_host.h"
+#include "src/EspUsbHost.h"
 #include "FS.h"
 
+#define TAG "MAIN"
 
 ScannerPrinter xScannerPrinter;
 
+void setup()
+{
+  Serial.begin(115200);
 
-void setup() {
   xScannerPrinter.beginScanner();
 }
 
-void loop() {
+void loop()
+{
   xScannerPrinter.scannerTask();
   String barcode = xScannerPrinter.getBarcode();
-  Serial.println(barcode);
+  if(barcode != ""){
+    Serial.println(barcode);
+  }
 }

@@ -69,6 +69,5 @@ public:
 };
 }
 
-extern fs::USBMSCHOST USB_MSC_HOST;
 
 #endif
