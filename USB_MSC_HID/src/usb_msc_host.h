@@ -23,51 +23,58 @@
 
 #include "FS.h"
 
-#define MNT_PATH         "/usb"     // Path in the Virtual File System, where the USB flash drive is going to be mounted
-#define BUFFER_SIZE      4096       // The read/write performance can be improved with larger buffer for the cost of RAM, 4kB is enough for most usecases
-typedef enum {
+#define MNT_PATH "/usb"  // Path in the Virtual File System, where the USB flash drive is going to be mounted
+#define BUFFER_SIZE 4096 // The read/write performance can be improved with larger buffer for the cost of RAM, 4kB is enough for most usecases
+typedef enum
+{
     USB_UNREADY,
     USB_READY,
     USB_QUIT,                // Signals request to exit the application
     USB_DEVICE_CONNECTED,    // USB device connect event
     USB_DEVICE_DISCONNECTED, // USB device disconnect event
 } usb_state_t;
-  
 
-typedef struct {
+typedef struct
+{
     usb_state_t id;
-    union {
+    union
+    {
         uint8_t new_dev_address; // Address of new USB device for APP_DEVICE_CONNECTED event if
     } data;
 } usb_message_t;
 
 namespace fs
 {
-class USBMSCHOST : public FS {
+    class USBMSCHOST : public FS
+    {
 
-public:
-    USBMSCHOST(FSImplPtr impl);
-    
-    bool begin();
-    bool isConnected();
-    void end();
+    public:
+        USBMSCHOST(FSImplPtr impl);
 
-    static void usb_background_task_cb(void* agrs);
-    static void usb_handle_task_cb(void* pvParameters);
-    TaskHandle_t usb_background_task = NULL;
-    TaskHandle_t usb_handle_task = NULL;
-    static void msc_event_cb(const msc_host_event_t* event, void* arg);
-    static void print_device_info(msc_host_device_info_t* info);
-    QueueHandle_t usb_flash_queue = NULL;
-    usb_message_t usb_state;
-    msc_host_device_info_t usb_info;
-    msc_host_device_handle_t msc_device = NULL;
-    msc_host_vfs_handle_t vfs_handle = NULL;
-    static usb_host_config_t host_config;
-    static msc_host_driver_config_t msc_config;
-    bool flagBeginUsbMsc = false;
-};
+        bool begin();
+        bool isConnected();
+        void end();
+        void usb_msc_host_install();
+        void usb_msc_host_install_without_client();
+        static void usb_background_task_cb(void *agrs);
+
+        static void usb_handle_task_cb(void *pvParameters);
+
+        TaskHandle_t usb_background_task = NULL;
+        TaskHandle_t usb_handle_task = NULL;
+
+        static void msc_event_cb(const msc_host_event_t *event, void *arg);
+        static void print_device_info(msc_host_device_info_t *info);
+
+        QueueHandle_t usb_flash_queue = NULL;
+        usb_message_t usb_state;
+        msc_host_device_info_t usb_info;
+        msc_host_device_handle_t msc_device = NULL;
+        msc_host_vfs_handle_t vfs_handle = NULL;
+        static usb_host_config_t host_config;
+        static msc_host_driver_config_t msc_config;
+        bool flagBeginUsbMsc = false;
+    };
 }
-
 
 #endif

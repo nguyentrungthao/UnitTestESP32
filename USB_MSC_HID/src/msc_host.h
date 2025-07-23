@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include "esp_err.h"
 #include "freertos/FreeRTOS.h"
+#include "usb/usb_host.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,6 +74,31 @@ typedef struct {
     wchar_t iSerialNumber[MSC_STR_DESC_SIZE];
 } msc_host_device_info_t;
 
+/**
+ * @brief set client handle from main when device connected
+ * 
+ * @param pxClientHandle 
+ */
+void msc_setup_client_handle(usb_host_client_handle_t pxClientHandle);
+/**
+ * @brief clear client handle from main when device out 
+ * 
+ */
+void msc_clear_client_handle();
+/**
+ * @brief callback for usb host client register
+ * 
+ * @param event 
+ * @param arg 
+ */
+void msc_client_event_cb(const usb_host_client_event_msg_t *event, void *arg);
+/**
+ * @brief Install USB Host Mass Storage Class driver without register client USB host
+ *
+ * @param[in] config configuration structure MSC to create
+ * @return esp_err_r
+ */
+esp_err_t msc_host_install_without_client_register(const msc_host_driver_config_t *config);
 /**
  * @brief Install USB Host Mass Storage Class driver
  *

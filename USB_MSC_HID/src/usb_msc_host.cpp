@@ -36,6 +36,7 @@ bool USBMSCHOST::begin()
         //     ESP_LOGI(TAG, "Create: usb_background_task_cb");
         //     assert(this->usb_background_task);
         // }
+        usb_msc_host_install_without_client();
 
         ESP_LOGI(TAG, "Waiting for USB flash drive to be connected");
         if (this->usb_handle_task == NULL)
@@ -58,7 +59,8 @@ void USBMSCHOST::end(void)
 {
     static usb_message_t message;
     message.id = USB_QUIT;
-    if (this->usb_flash_queue && flagBeginUsbMsc == true) {
+    if (this->usb_flash_queue && flagBeginUsbMsc == true)
+    {
         flagBeginUsbMsc = false;
         xQueueSend(this->usb_flash_queue, &message, portMAX_DELAY);
     }
@@ -120,10 +122,14 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
 
         if (msg.id == USB_DEVICE_CONNECTED)
         {
+            ESP_LOGI(TAG, "usb_handle_task_cb has USB_DEVICE_CONNECTED");
             vTaskDelay(pdMS_TO_TICKS(100));
             // 1. MSC flash drive connected. Open it and map it to Virtual File System
+            //! đang gọi usb_host_open
             if (msc_host_install_device(msg.data.new_dev_address, &(usb_msc_host_ptr->msc_device)) == ESP_OK)
             {
+
+                //* đăng kí vào systemFile
                 const esp_vfs_fat_mount_config_t mount_config = {
                     .format_if_mount_failed = false,
                     .max_files = 2,
@@ -150,13 +156,12 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
                 usb_msc_host_ptr->vfs_handle = NULL;
                 usb_msc_host_ptr->_impl->mountpoint(NULL);
             }
-            //! bỏ vì can thiệp USB driver
-            // if (usb_msc_host_ptr->msc_device)
-            // {
-            //     ESP_LOGI(TAG, "msc_host_uninstall_device");
-            //     ESP_ERROR_CHECK(msc_host_uninstall_device(usb_msc_host_ptr->msc_device));
-            //     usb_msc_host_ptr->msc_device = NULL;
-            // }
+            if (usb_msc_host_ptr->msc_device)
+            {
+                ESP_LOGI(TAG, "msc_host_uninstall_device");
+                ESP_ERROR_CHECK(msc_host_uninstall_device(usb_msc_host_ptr->msc_device));
+                usb_msc_host_ptr->msc_device = NULL;
+            }
             //! bỏ vì can thiệp client USB driver
             // if (msg.id == USB_QUIT)
             // {
@@ -170,11 +175,25 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
         // printf("Task RAM Usage: %u bytes\n", configMINIMAL_STACK_SIZE - stackHighWaterMark);
     }
     vTaskDelay(10);
-    // ESP_LOGI(TAG, "Done");
+    ESP_LOGI(TAG, "Done");
     vQueueDelete(usb_msc_host_ptr->usb_flash_queue);
     usb_msc_host_ptr->usb_flash_queue = NULL;
     usb_msc_host_ptr->usb_handle_task = NULL;
     vTaskDelete(NULL);
+}
+
+void USBMSCHOST::usb_msc_host_install_without_client()
+{
+    msc_config.callback = msc_event_cb; // TODO ĐÂY LÀ CALLBACK CỦA CLIENT MSC
+    msc_config.callback_arg = (void *)this;
+    ESP_ERROR_CHECK(msc_host_install_without_client_register((const msc_host_driver_config_t *)&this->msc_config));
+}
+void USBMSCHOST::usb_msc_host_install()
+{
+    msc_config.callback = msc_event_cb; // TODO ĐÂY LÀ CALLBACK CỦA CLIENT MSC
+    msc_config.callback_arg = (void *)this;
+    //! đăng ký client ở đây
+    ESP_ERROR_CHECK(msc_host_install((const msc_host_driver_config_t *)&this->msc_config));
 }
 
 //! task này sẽ không được chạy vì để main quản lý
@@ -187,11 +206,7 @@ void USBMSCHOST::usb_background_task_cb(void *agrs)
         ESP_ERROR_CHECK(usb_host_install((const usb_host_config_t *)&usb_msc_host_ptr->host_config));
         flagInstallUSB = true;
     }
-
-    usb_msc_host_ptr->msc_config.callback = msc_event_cb; // TODO ĐÂY LÀ CALLBACK CỦA CLIENT MSC
-    usb_msc_host_ptr->msc_config.callback_arg = agrs;
-    //! đăng ký client ở đây
-    ESP_ERROR_CHECK(msc_host_install((const msc_host_driver_config_t *)&usb_msc_host_ptr->msc_config));
+    usb_msc_host_ptr->usb_msc_host_install();
 
     bool has_clients = true;
     while (1)
