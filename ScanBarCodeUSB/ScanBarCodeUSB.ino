@@ -21,4 +21,5 @@ void loop()
   if(barcode != ""){
     Serial.println(barcode);
   }
+  delay(100);
 }
