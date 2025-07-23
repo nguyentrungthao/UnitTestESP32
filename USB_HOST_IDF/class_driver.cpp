@@ -1,4 +1,5 @@
 
+#include <Arduino.h>
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -104,6 +105,60 @@ static void action_get_config_desc(class_driver_t *driver_obj)
     driver_obj->actions |= ACTION_GET_STR_DESC;
 }
 
+void my_usb_host_task(class_driver_t *driver_obj)
+{
+    typedef struct
+    {
+        uint8_t bLength;
+        uint8_t bDescriptorType;
+        uint8_t bInterfaceNumber;
+        uint8_t bAlternateSetting;
+        uint8_t bNumEndpoints;
+        uint8_t bInterfaceClass;
+        uint8_t bInterfaceSubClass;
+        uint8_t bInterfaceProtocol;
+        uint8_t iInterface;
+    } __attribute__((packed)) usb_interface_desc_t;
+
+    ESP_LOGI(TAG, "Getting config descriptor");
+    const usb_config_desc_t *config_desc;
+    esp_err_t err = usb_host_get_active_config_descriptor(driver_obj->dev_hdl, &config_desc);
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(TAG, "Failed to get config descriptor: %s", esp_err_to_name(err));
+        return;
+    }
+    usb_print_config_descriptor(config_desc, NULL);
+
+    // Duyệt qua các descriptor con để tìm Interface descriptor
+    const uint8_t *current_desc_ptr = (const uint8_t *)config_desc;
+    // Bỏ qua Configuration descriptor
+    current_desc_ptr += config_desc->bLength;
+
+    // Lặp qua tất cả các descriptor cho đến hết wTotalLength
+    while (current_desc_ptr < ((const uint8_t *)config_desc + config_desc->wTotalLength))
+    {
+        const usb_standard_desc_t *header = (const usb_standard_desc_t *)current_desc_ptr;
+
+        if (header->bDescriptorType == USB_B_DESCRIPTOR_TYPE_INTERFACE)
+        {
+            const usb_interface_desc_t *interface_desc = (const usb_interface_desc_t *)current_desc_ptr;
+            ESP_LOGI(TAG, "Found Interface Descriptor:");
+            ESP_LOGI(TAG, "  bInterfaceNumber: %d", interface_desc->bInterfaceNumber);
+            ESP_LOGI(TAG, "  bInterfaceClass: 0x%x", interface_desc->bInterfaceClass);
+            ESP_LOGI(TAG, "  bInterfaceSubClass: 0x%x", interface_desc->bInterfaceSubClass);
+            ESP_LOGI(TAG, "  bInterfaceProtocol: 0x%x", interface_desc->bInterfaceProtocol);
+            // Bạn đã tìm thấy bInterfaceClass ở đây
+            // Bạn có thể lưu giá trị này vào một biến, hoặc thực hiện hành động cần thiết
+            break; // Nếu bạn chỉ cần interface đầu tiên, có thể thoát
+        }
+        current_desc_ptr += header->bLength; // Chuyển sang descriptor tiếp theo
+    }
+
+    // ... (Giải phóng bộ nhớ hoặc các thao tác khác)
+    usb_host_free_config_descriptor(config_desc); // Đảm bảo giải phóng bộ nhớ
+}
+
 static void action_get_str_desc(class_driver_t *driver_obj)
 {
     assert(driver_obj->dev_hdl != NULL);
@@ -166,23 +221,35 @@ void class_driver_task(void *arg)
             if (driver_obj.actions & ACTION_OPEN_DEV)
             {
                 action_open_dev(&driver_obj);
-            }
-            if (driver_obj.actions & ACTION_GET_DEV_INFO)
-            {
+                ESP_LOGI(TAG, "===================action_get_info===================");
                 action_get_info(&driver_obj);
-            }
-            if (driver_obj.actions & ACTION_GET_DEV_DESC)
-            {
+
+                ESP_LOGI(TAG, "===================action_get_dev_desc===================");
                 action_get_dev_desc(&driver_obj);
-            }
-            if (driver_obj.actions & ACTION_GET_CONFIG_DESC)
-            {
+
+                ESP_LOGI(TAG, "===================action_get_config_desc===================");
                 action_get_config_desc(&driver_obj);
-            }
-            if (driver_obj.actions & ACTION_GET_STR_DESC)
-            {
+
+                ESP_LOGI(TAG, "===================action_get_str_desc===================");
                 action_get_str_desc(&driver_obj);
             }
+            // if (driver_obj.actions & ACTION_GET_DEV_INFO)
+            // {
+
+            // }
+            // if (driver_obj.actions & ACTION_GET_DEV_DESC)
+            // {
+            // }
+            // if (driver_obj.actions & ACTION_GET_CONFIG_DESC)
+            // {
+            //
+            // }
+            // if (driver_obj.actions & ACTION_GET_STR_DESC)
+            // {
+            //
+            // }
+            driver_obj.actions |= ACTION_RECONNECT;
+
             if (driver_obj.actions & ACTION_CLOSE_DEV)
             {
                 action_close_dev(&driver_obj);

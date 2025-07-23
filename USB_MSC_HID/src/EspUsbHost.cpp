@@ -29,6 +29,8 @@ void EspUsbHost::_printPcapText(const char *title, uint16_t function, uint8_t di
 #endif
 }
 
+
+//! hủy bỏ hàm khởi tạo 
 void EspUsbHost::begin(void) {
   usbTransferSize = 0;
 

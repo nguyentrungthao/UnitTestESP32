@@ -8,6 +8,7 @@
 usb_host_client_handle_t client_hdl;
 usb_device_handle_t dev_hdl;
 uint16_t u16SysFlag = 0;
+uint8_t usbClass = 0xFF;
 
 ScannerPrinter xScannerPrinter;
 fs::USBMSCHOST USB_MSC_HOST = fs::USBMSCHOST(FSImplPtr(new VFSImpl()));
@@ -44,11 +45,34 @@ void general_client_event_callback(const usb_host_client_event_msg_t *event_msg,
       ESP_LOGI("EspUsbHost", "usb_host_device_open() ESP_OK");
     }
     vReadInfoDevice();
+    switch (usbClass)
+    {
+    case USB_CLASS_HID:
+      ESP_LOGI("MAIN", "USB_CLASS_HID");
+      break;
+    case USB_CLASS_MASS_STORAGE:
+      ESP_LOGI("MAIN", "USB_CLASS_MASS_STORAGE");
+      break;
+    default:
+      ESP_LOGI("MAIN", "usbClass = %d", usbClass);
+      break;
+    }
+
     break;
-  // case USB_HOST_CLIENT_EVENT_DEV_GONE:
-  //   break;
+  case USB_HOST_CLIENT_EVENT_DEV_GONE:
+    ESP_LOGI("EspUsbHost", "USB_HOST_CLIENT_EVENT_NEW_DEV new_dev.address=%d", event_msg->new_dev.address);
+    err = usb_host_device_close(client_hdl, dev_hdl);
+    if (err != ESP_OK)
+    {
+      ESP_LOGI("EspUsbHost", "usb_host_device_open() err=%x", err);
+    }
+    else
+    {
+      ESP_LOGI("EspUsbHost", "usb_host_device_open() ESP_OK");
+    }
+    break;
   default:
-    // ESP_LOGI("MAIN", "%s default %d", __func__, eventMsg->event);
+    ESP_LOGI("MAIN", "%s default %d", __func__, event_msg->event);
     break;
   }
 }
@@ -68,6 +92,24 @@ void vInitGeneralClient()
     return;
   }
   ESP_LOGI("MAIN", "USB Host client registered");
+}
+String getUsbDescString(const usb_str_desc_t *str_desc)
+{
+  String str = "";
+  if (str_desc == NULL)
+  {
+    return str;
+  }
+
+  for (int i = 0; i < str_desc->bLength / 2; i++)
+  {
+    if (str_desc->wData[i] > 0xFF)
+    {
+      continue;
+    }
+    str += char(str_desc->wData[i]);
+  }
+  return str;
 }
 void vReadInfoDevice()
 {
@@ -136,6 +178,8 @@ void vReadInfoDevice()
              dev_desc->bNumConfigurations);
   }
 
+  usbClass = dev_desc->bDeviceClass;
+
   const usb_config_desc_t *config_desc;
   err = usb_host_get_active_config_descriptor(dev_hdl, &config_desc);
   if (err != ESP_OK)
@@ -164,20 +208,15 @@ void vReadInfoDevice()
   }
 }
 
-void setup()
+void vUSBDeamonTask(void *ptr)
 {
-  Serial.begin(115200);
-
-  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, NULL, 2, NULL);
-}
-
-void loop()
-{
-}
-
-void vUSBDeamonTask(void *)
-{
+  if (NULL == ptr)
+  {
+    ESP_LOGE("MAIN", "%s ptr == NULL", __func__);
+  }
+  vTaskSuspend((TaskHandle_t)ptr); // đồng bộ khởi tạo driver USB thành công trước khi đăng khí client
   vInitDriverUSB();
+  vTaskResume((TaskHandle_t)ptr);
 
   bool has_clients = true;
   bool has_devices = true;
@@ -215,6 +254,18 @@ void vUSBClient(void *)
   vInitGeneralClient();
   while (1)
   {
-    usb_host_client_handle_events(driver_obj.client_hdl, portMAX_DELAY);
+    usb_host_client_handle_events(client_hdl, portMAX_DELAY);
   }
+}
+
+void setup()
+{
+  Serial.begin(115200);
+
+  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, xTaskGetCurrentTaskHandle(), 2, NULL);
+  xTaskCreate(vUSBClient, "USB Client", 8096, NULL, 2, NULL);
+}
+
+void loop()
+{
 }
