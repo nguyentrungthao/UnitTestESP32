@@ -303,6 +303,7 @@ void EspUsbHost::task(void)
 
       for (int i = 0; i < this->usbTransferSize; i++)
       {
+
         if (this->usbTransfer[i] == NULL)
         {
           continue;
@@ -317,7 +318,6 @@ void EspUsbHost::task(void)
     }
   }
 }
-
 String EspUsbHost::getUsbDescString(const usb_str_desc_t *str_desc)
 {
   String str = "";
@@ -682,10 +682,12 @@ void EspUsbHost::_onReceive(usb_transfer_t *transfer)
   }
 #define SCSI_COMMAND_SET 0x06
 #define BULK_ONLY_TRANSFER 0x50
-  else if (ifc_desc->bInterfaceClass == USB_CLASS_MASS_STORAGE &&
-           ifc_desc->bInterfaceSubClass == SCSI_COMMAND_SET &&
-           ifc_desc->bInterfaceProtocol == BULK_ONLY_TRANSFER)
+  else
+  // if (endpoint_data->bInterfaceClass == USB_CLASS_MASS_STORAGE &&
+  //          endpoint_data->bInterfaceSubClass == SCSI_COMMAND_SET &&
+  //          endpoint_data->bInterfaceProtocol == BULK_ONLY_TRANSFER)
   {
+    ESP_LOGI("EspUsbHost", "MSC connected");
   }
 
   usbHost->onReceive(transfer);

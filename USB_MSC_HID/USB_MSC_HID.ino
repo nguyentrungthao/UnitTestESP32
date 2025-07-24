@@ -5,6 +5,14 @@
 
 #define TAG "MAIN"
 
+usb_host_client_handle_t client_hdl;
+usb_device_handle_t dev_hdl;
+uint16_t u16SysFlag = 0;
+uint8_t usbClass = 0xFF;
+
+ScannerPrinter xScannerPrinter;
+fs::USBMSCHOST USB_MSC_HOST = fs::USBMSCHOST(FSImplPtr(new VFSImpl()));
+
 bool checkMSCDevice(const usb_intf_desc_t *intf)
 {
   const uint8_t SCSI_COMMAND_SET = 0x06;
@@ -19,14 +27,6 @@ bool checkHIDDevice(const usb_intf_desc_t *intf)
          (intf->bInterfaceSubClass == HID_SUBCLASS_BOOT) &&
          (intf->bInterfaceProtocol == HID_ITF_PROTOCOL_KEYBOARD);
 }
-
-usb_host_client_handle_t client_hdl;
-usb_device_handle_t dev_hdl;
-uint16_t u16SysFlag = 0;
-uint8_t usbClass = 0xFF;
-
-ScannerPrinter xScannerPrinter;
-fs::USBMSCHOST USB_MSC_HOST = fs::USBMSCHOST(FSImplPtr(new VFSImpl()));
 
 void vInitDriverUSB()
 {
