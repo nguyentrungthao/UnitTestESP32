@@ -358,40 +358,6 @@ static bool is_mass_storage_device(uint8_t dev_addr)
     return is_msc_device;
 }
 
-//! không được chạy nữa
-esp_err_t msc_host_handle_events(uint32_t timeout)
-{
-    MSC_RETURN_ON_FALSE(s_msc_driver != NULL, ESP_ERR_INVALID_STATE);
-
-    ESP_LOGV(TAG, "USB MSC handling");
-    s_msc_driver->event_handling_started = true;
-    esp_err_t ret = usb_host_client_handle_events(s_msc_driver->client_handle, timeout);
-    if (s_msc_driver->end_client_event_handling)
-    {
-        xSemaphoreGive(s_msc_driver->all_events_handled);
-        return ESP_FAIL;
-    }
-    return ret;
-}
-
-//! không được khởi tạo ở msc_host_install nữa
-/**
- * @brief USB Client Event handler
- *
- * Handle all USB client events such as USB transfers and connections/disconnections
- *
- * @param[in] arg   Argument, not used
- */
-static void event_handler_task(void *arg)
-{
-    ESP_LOGD(TAG, "USB HID handling start");
-    while (msc_host_handle_events(portMAX_DELAY) == ESP_OK)
-    {
-    }
-    ESP_LOGD(TAG, "USB HID handling stop");
-    vTaskDelete(NULL);
-}
-
 static msc_device_t *find_msc_device(usb_device_handle_t device_handle)
 {
     msc_device_t *iter;
@@ -469,17 +435,9 @@ esp_err_t msc_host_install_without_client_register(const msc_host_driver_config_
     driver->user_cb = config->callback;
     driver->user_arg = config->callback_arg;
 
-    // usb_host_client_config_t client_config = {
-    //     .async.client_event_callback = client_event_cb,
-    //     .async.callback_arg = NULL,
-    //     .max_num_event_msg = 10,
-    // };
-
     driver->end_client_event_handling = false;
     driver->all_events_handled = xSemaphoreCreateBinary();
     MSC_RETURN_ON_FALSE(driver->all_events_handled, ESP_ERR_NO_MEM);
-
-    // MSC_GOTO_ON_ERROR(usb_host_client_register(&client_config, &driver->client_handle));
 
     MSC_ENTER_CRITICAL();
     MSC_RETURN_ON_FALSE_CRITICAL(!s_msc_driver, ESP_ERR_INVALID_STATE);
@@ -487,116 +445,6 @@ esp_err_t msc_host_install_without_client_register(const msc_host_driver_config_
     STAILQ_INIT(&s_msc_driver->devices_tailq);
     MSC_EXIT_CRITICAL();
 
-    // if (config->create_backround_task)
-    // {
-    //     BaseType_t task_created = xTaskCreatePinnedToCore(
-    //         event_handler_task,
-    //         "USB MSC",
-    //         config->stack_size,
-    //         NULL,
-    //         config->task_priority,
-    //         NULL,
-    //         config->core_id);
-    //     MSC_GOTO_ON_FALSE(task_created, ESP_ERR_NO_MEM);
-    // }
-
-    return ESP_OK;
-
-    // fail:
-    //     s_msc_driver = NULL;
-    //     usb_host_client_deregister(driver->client_handle);
-    //     if (driver->all_events_handled)
-    //     {
-    //         vSemaphoreDelete(driver->all_events_handled);
-    //     }
-    //     free(driver);
-    //     return ret;
-}
-
-esp_err_t msc_host_install(const msc_host_driver_config_t *config)
-{
-    esp_err_t ret;
-
-    MSC_RETURN_ON_INVALID_ARG(config);
-    MSC_RETURN_ON_INVALID_ARG(config->callback);
-    if (config->create_backround_task)
-    {
-        MSC_RETURN_ON_FALSE(config->stack_size != 0, ESP_ERR_INVALID_ARG);
-        MSC_RETURN_ON_FALSE(config->task_priority != 0, ESP_ERR_INVALID_ARG);
-    }
-    MSC_RETURN_ON_FALSE(!s_msc_driver, ESP_ERR_INVALID_STATE);
-
-    msc_driver_t *driver = calloc(1, sizeof(msc_driver_t));
-    MSC_RETURN_ON_FALSE(driver, ESP_ERR_NO_MEM);
-    driver->user_cb = config->callback;
-    driver->user_arg = config->callback_arg;
-
-    usb_host_client_config_t client_config = {
-        .async.client_event_callback = msc_client_event_cb,
-        .async.callback_arg = NULL,
-        .max_num_event_msg = 10,
-    };
-
-    driver->end_client_event_handling = false;
-    driver->all_events_handled = xSemaphoreCreateBinary();
-    MSC_GOTO_ON_FALSE(driver->all_events_handled, ESP_ERR_NO_MEM);
-
-    MSC_GOTO_ON_ERROR(usb_host_client_register(&client_config, &driver->client_handle));
-
-    MSC_ENTER_CRITICAL();
-    MSC_GOTO_ON_FALSE_CRITICAL(!s_msc_driver, ESP_ERR_INVALID_STATE);
-    s_msc_driver = driver;
-    STAILQ_INIT(&s_msc_driver->devices_tailq);
-    MSC_EXIT_CRITICAL();
-
-    if (config->create_backround_task)
-    {
-        BaseType_t task_created = xTaskCreatePinnedToCore(
-            event_handler_task,
-            "USB MSC",
-            config->stack_size,
-            NULL,
-            config->task_priority,
-            NULL,
-            config->core_id);
-        MSC_GOTO_ON_FALSE(task_created, ESP_ERR_NO_MEM);
-    }
-
-    return ESP_OK;
-
-fail:
-    s_msc_driver = NULL;
-    usb_host_client_deregister(driver->client_handle);
-    if (driver->all_events_handled)
-    {
-        vSemaphoreDelete(driver->all_events_handled);
-    }
-    free(driver);
-    return ret;
-}
-//! không dùng đến vì main sẽ quản lý client và driver
-esp_err_t msc_host_uninstall(void)
-{
-    // Make sure msc driver is installed,
-    // not being uninstalled from other task
-    // and no msc device is registered
-    MSC_ENTER_CRITICAL();
-    MSC_RETURN_ON_FALSE_CRITICAL(s_msc_driver != NULL, ESP_ERR_INVALID_STATE);
-    MSC_RETURN_ON_FALSE_CRITICAL(!s_msc_driver->end_client_event_handling, ESP_ERR_INVALID_STATE);
-    MSC_RETURN_ON_FALSE_CRITICAL(STAILQ_EMPTY(&s_msc_driver->devices_tailq), ESP_ERR_INVALID_STATE);
-    s_msc_driver->end_client_event_handling = true;
-    MSC_EXIT_CRITICAL();
-
-    if (s_msc_driver->event_handling_started)
-    {
-        ESP_ERROR_CHECK(usb_host_client_unblock(s_msc_driver->client_handle));
-        // In case the event handling started, we must wait until it finishes
-        xSemaphoreTake(s_msc_driver->all_events_handled, portMAX_DELAY);
-    }
-    vSemaphoreDelete(s_msc_driver->all_events_handled);
-    ESP_ERROR_CHECK(usb_host_client_deregister(s_msc_driver->client_handle));
-    free(s_msc_driver);
-    s_msc_driver = NULL;
     return ESP_OK;
 }
 
@@ -643,7 +491,6 @@ fail:
 esp_err_t msc_host_uninstall_device(msc_host_device_handle_t device)
 {
     MSC_RETURN_ON_INVALID_ARG(device);
-    ESP_LOGI(TAG, "device is OKE");
     return msc_deinit_device((msc_device_t *)device, false);
 }
 

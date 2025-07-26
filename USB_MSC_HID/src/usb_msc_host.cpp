@@ -122,11 +122,12 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
 
         if (msg.id == USB_DEVICE_CONNECTED)
         {
+            esp_err_t err = ESP_OK;
             ESP_LOGI(TAG, "usb_handle_task_cb has USB_DEVICE_CONNECTED");
             vTaskDelay(pdMS_TO_TICKS(100));
             // 1. MSC flash drive connected. Open it and map it to Virtual File System
-            //! đang gọi usb_host_open
-            if (msc_host_install_device(msg.data.new_dev_address, &(usb_msc_host_ptr->msc_device)) == ESP_OK)
+            err = msc_host_install_device(msg.data.new_dev_address, &(usb_msc_host_ptr->msc_device));
+            if (err == ESP_OK)
             {
 
                 //* đăng kí vào systemFile
@@ -135,7 +136,9 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
                     .max_files = 2,
                     .allocation_unit_size = 8192,
                 };
-                if (msc_host_vfs_register(usb_msc_host_ptr->msc_device, MNT_PATH, &mount_config, &(usb_msc_host_ptr->vfs_handle)) == ESP_OK)
+                ESP_LOGI(TAG, "usb_handle_task_cb Open device OK");
+                err = msc_host_vfs_register(usb_msc_host_ptr->msc_device, MNT_PATH, &mount_config, &(usb_msc_host_ptr->vfs_handle));
+                if (err == ESP_OK)
                 {
                     // 2. Print information about the connected disk
                     ESP_ERROR_CHECK(msc_host_get_device_info(usb_msc_host_ptr->msc_device, &(usb_msc_host_ptr->usb_info)));
@@ -145,6 +148,14 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
                     usb_msc_host_ptr->_impl->mountpoint(MNT_PATH);
                     ESP_LOGI(TAG, "The disk is mounted to Virtual File System");
                 }
+                else
+                {
+                    ESP_LOGE("TAG", "msc_host_vfs_register %s", esp_err_to_name(err));
+                }
+            }
+            else
+            {
+                ESP_LOGE("TAG", "msc_host_install_device %s", esp_err_to_name(err));
             }
         }
         if ((msg.id == USB_DEVICE_DISCONNECTED) || (msg.id == USB_QUIT))
@@ -161,15 +172,8 @@ void USBMSCHOST::usb_handle_task_cb(void *pvParameters)
                 ESP_LOGI(TAG, "msc_host_uninstall_device");
                 ESP_ERROR_CHECK(msc_host_uninstall_device(usb_msc_host_ptr->msc_device));
                 usb_msc_host_ptr->msc_device = NULL;
+                msc_clear_client_handle();
             }
-            //! bỏ vì can thiệp client USB driver
-            // if (msg.id == USB_QUIT)
-            // {
-            //     // This will cause the usb_task to exit
-            //     ESP_LOGI(TAG, "msc_host_uninstall");
-            //     ESP_ERROR_CHECK(msc_host_uninstall());
-            //     break;
-            // }
         }
         // size_t stackHighWaterMark = uxTaskGetStackHighWaterMark(NULL);
         // printf("Task RAM Usage: %u bytes\n", configMINIMAL_STACK_SIZE - stackHighWaterMark);
@@ -188,55 +192,4 @@ void USBMSCHOST::usb_msc_host_install_without_client()
     msc_config.callback_arg = (void *)this;
     ESP_ERROR_CHECK(msc_host_install_without_client_register((const msc_host_driver_config_t *)&this->msc_config));
 }
-void USBMSCHOST::usb_msc_host_install()
-{
-    msc_config.callback = msc_event_cb; // TODO ĐÂY LÀ CALLBACK CỦA CLIENT MSC
-    msc_config.callback_arg = (void *)this;
-    //! đăng ký client ở đây
-    ESP_ERROR_CHECK(msc_host_install((const msc_host_driver_config_t *)&this->msc_config));
-}
 
-//! task này sẽ không được chạy vì để main quản lý
-void USBMSCHOST::usb_background_task_cb(void *agrs)
-{
-    USBMSCHOST *usb_msc_host_ptr = static_cast<USBMSCHOST *>(agrs);
-    static bool flagInstallUSB = false;
-    if (flagInstallUSB == false)
-    {
-        ESP_ERROR_CHECK(usb_host_install((const usb_host_config_t *)&usb_msc_host_ptr->host_config));
-        flagInstallUSB = true;
-    }
-    usb_msc_host_ptr->usb_msc_host_install();
-
-    bool has_clients = true;
-    while (1)
-    {
-        uint32_t event_flags;
-        usb_host_lib_handle_events(portMAX_DELAY, &event_flags);
-        // Release devices once all clients has deregistered
-        if (event_flags & USB_HOST_LIB_EVENT_FLAGS_NO_CLIENTS)
-        {
-            has_clients = false;
-            ESP_LOGI(TAG, "has_clients = false");
-            if (usb_msc_host_ptr->usb_state.id == USB_DEVICE_DISCONNECTED || usb_msc_host_ptr->usb_state.id == USB_UNREADY)
-            {
-                if (usb_host_device_free_all() == ESP_OK)
-                {
-                    ESP_LOGI(TAG, "usb_host_device_free_all");
-                    break;
-                }
-            }
-        }
-        if (event_flags & USB_HOST_LIB_EVENT_FLAGS_ALL_FREE && !has_clients)
-        {
-            break;
-        }
-    }
-    vTaskDelay(10); // Give clients some time to uninstall
-    ESP_LOGI(TAG, "Deinitializing USB");
-    flagInstallUSB = false;
-    ESP_ERROR_CHECK(usb_host_uninstall());
-    ESP_LOGI(TAG, "usb_host_uninstall");
-    usb_msc_host_ptr->usb_background_task = NULL;
-    vTaskDelete(NULL);
-}

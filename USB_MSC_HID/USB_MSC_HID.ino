@@ -202,13 +202,12 @@ void general_client_event_callback(const usb_host_client_event_msg_t *event_msg,
 
     break;
   case USB_HOST_CLIENT_EVENT_DEV_GONE:
-    ESP_LOGI("MAIN", "USB_HOST_CLIENT_EVENT_DEV_GONE new_dev.address=%d", event_msg->new_dev.address);
+    ESP_LOGI("EspUsbHost", "USB_HOST_CLIENT_EVENT_DEV_GONE dev_gone.dev_hdl=%x", event_msg->dev_gone.dev_hdl);
     if (checkMSCDevice(intf))
     {
       // khởi tạo msc
       ESP_LOGI("MAIN", "\t\tcall msc_client_event_cb");
       msc_client_event_cb(event_msg, arg);
-      msc_clear_client_handle();
     }
     else if (checkHIDDevice(intf))
     {

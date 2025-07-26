@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "Arduino.h"
 #include <wchar.h>
 #include <stdint.h>
 #include "esp_err.h"
