@@ -62,6 +62,11 @@ void EspUsbHost::begin(void) {
 void EspUsbHost::_clientEventCallback(const usb_host_client_event_msg_t *eventMsg, void *arg) {
   EspUsbHost *usbHost = (EspUsbHost *)arg;
 
+  if(usbHost->clientHandle == NULL){
+    ESP_LOGE("EspUsbHost", "usbHost->clientHandle == NULL");
+    return;
+  }
+  
   esp_err_t err;
   switch (eventMsg->event) {
     case USB_HOST_CLIENT_EVENT_NEW_DEV:
@@ -237,6 +242,11 @@ void EspUsbHost::_configCallback(const usb_config_desc_t *config_desc) {
 }
 
 void EspUsbHost::task(void) {
+    if(this->clientHandle == NULL){
+    ESP_LOGE("EspUsbHost", "this->clientHandle == NULL");
+    return;
+  }
+
   esp_err_t err = usb_host_lib_handle_events(1, &this->eventFlags);
   if (err != ESP_OK && err != ESP_ERR_TIMEOUT) {
     ESP_LOGI("EspUsbHost", "usb_host_lib_handle_events() err=%x eventFlags=%x", err, this->eventFlags);
@@ -282,6 +292,11 @@ String EspUsbHost::getUsbDescString(const usb_str_desc_t *str_desc) {
 }
 
 void EspUsbHost::onConfig(const uint8_t bDescriptorType, const uint8_t *p) {
+  if(this->clientHandle == NULL){
+    ESP_LOGE("EspUsbHost", "usbHost->clientHandle == NULL");
+    return;
+  }
+
   switch (bDescriptorType) {
     case USB_DEVICE_DESC:
       {
@@ -743,6 +758,12 @@ void EspUsbHost::setHIDLocal(hid_local_enum_t code) {
 }
 
 esp_err_t EspUsbHost::submitControl(const uint8_t bmRequestType, const uint8_t bDescriptorIndex, const uint8_t bDescriptorType, const uint16_t wInterfaceNumber, const uint16_t wDescriptorLength) {
+  
+    if(this->clientHandle == NULL){
+    ESP_LOGE("EspUsbHost", "usbHost->clientHandle == NULL");
+    return;
+  }
+  
   usb_transfer_t *transfer;
   usb_host_transfer_alloc(wDescriptorLength + 8 + 1, 0, &transfer);
 

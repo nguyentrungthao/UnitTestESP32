@@ -9,24 +9,24 @@ bool checkMSCDevice(const usb_intf_desc_t *intf)
 {
   const uint8_t SCSI_COMMAND_SET = 0x06;
   const uint8_t BULK_ONLY_TRANSFER = 0x50;
-  return (intf->bInterfaceClass == USB_CLASS_MASS_STORAGE) &&
-         (intf->bInterfaceSubClass == SCSI_COMMAND_SET) &&
-         (intf->bInterfaceProtocol == BULK_ONLY_TRANSFER);
+  return ((intf->bInterfaceClass == USB_CLASS_MASS_STORAGE) &&
+          (intf->bInterfaceSubClass == SCSI_COMMAND_SET) &&
+          (intf->bInterfaceProtocol == BULK_ONLY_TRANSFER));
 }
 bool checkHIDDevice(const usb_intf_desc_t *intf)
 {
-  return (intf->bInterfaceClass == USB_CLASS_HID) &&
-         (intf->bInterfaceSubClass == HID_SUBCLASS_BOOT) &&
-         (intf->bInterfaceProtocol == HID_ITF_PROTOCOL_KEYBOARD);
+  return ((intf->bInterfaceClass == USB_CLASS_HID) &&
+          (intf->bInterfaceSubClass == HID_SUBCLASS_BOOT) &&
+          (intf->bInterfaceProtocol == HID_ITF_PROTOCOL_KEYBOARD));
 }
 
 usb_host_client_handle_t client_hdl;
 usb_device_handle_t dev_hdl;
 uint16_t u16SysFlag = 0;
 uint8_t usbClass = 0xFF;
-
 ScannerPrinter xScannerPrinter;
 fs::USBMSCHOST USB_MSC_HOST = fs::USBMSCHOST(FSImplPtr(new VFSImpl()));
+TaskHandle_t xTaskSDCardhdl = NULL;
 
 void vInitDriverUSB()
 {
@@ -193,10 +193,13 @@ void general_client_event_callback(const usb_host_client_event_msg_t *event_msg,
       ESP_LOGI("MAIN", "\t\tcall msc_client_event_cb");
       msc_setup_client_handle(client_hdl);
       msc_client_event_cb(event_msg, arg);
+      xTaskNotifyGive(xTaskSDCardhdl);
     }
     else if (checkHIDDevice(intf))
     {
       ESP_LOGI("MAIN", "\t\tcall hid_client_event_cb");
+      xScannerPrinter.setupClientHandle(client_hdl);
+      xScannerPrinter._clientEventCallback(event_msg, &xScannerPrinter);
       // HID
     }
 
@@ -212,6 +215,7 @@ void general_client_event_callback(const usb_host_client_event_msg_t *event_msg,
     else if (checkHIDDevice(intf))
     {
       ESP_LOGI("MAIN", "\t\tcall hid_client_event_cb");
+      xScannerPrinter._clientEventCallback(event_msg, &xScannerPrinter);
       // HID
     }
     break;
@@ -254,9 +258,6 @@ String getUsbDescString(const usb_str_desc_t *str_desc)
     str += char(str_desc->wData[i]);
   }
   return str;
-}
-void vReadInfoDevice(const usb_host_client_event_msg_t *event_msg, void *arg)
-{
 }
 
 void vUSBDeamonTask(void *ptr)
@@ -309,29 +310,60 @@ void vUSBClient(void *)
   }
 }
 
-const char *pcFilePath = "/hello.csv";
-void setup()
+void vGhiThoiGianVaoFile()
 {
-  Serial.begin(115200);
-  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, xTaskGetCurrentTaskHandle(), 2, NULL);
-  xTaskCreate(vUSBClient, "USB Client", 8096, NULL, 2, NULL);
-
-  USB_MSC_HOST.begin();
-  delay(1000);
-
+  const char *pcFilePath = "/helloWorld.csv";
   File file;
   file = USB_MSC_HOST.open(pcFilePath, FILE_APPEND);
   if (!file)
   {
-    Serial.println("Failed to open file for writing");
+    ESP_LOGE(TAG, "Failed to open file for writing");
     return;
   }
+  const char *pcTime = __TIME__;
 
-  file.write((const uint8_t *)"hello", strlen("hello"));
+  if (file.write((const uint8_t *)pcTime, strlen(pcTime)) == 0)
+  {
+    ESP_LOGE(TAG, "Failed to write file for writing");
+  }
 
   file.close();
 }
 
+void setup()
+{
+  Serial.begin(115200);
+  xTaskCreate(xTaskSDCard, "xTaskSDCard", 8096, NULL, 3, &xTaskSDCardhdl);
+  delay(1000);
+
+  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, xTaskGetCurrentTaskHandle(), 2, NULL);
+  xTaskCreate(vUSBClient, "USB Client", 8096, NULL, 2, NULL);
+  delay(1000);
+
+  USB_MSC_HOST.begin();
+  //! xScannerPrinter.begin(); không cần gọi vì main quản lý device và client
+
+  delay(1000);
+}
+
 void loop()
 {
+  xScannerPrinter.task();
+  String str = xScannerPrinter.getBarcode();
+  if (str != "")
+  {
+    Serial.println(str);
+  }
+}
+
+void xTaskSDCard(void *)
+{
+  uint32_t u32Value;
+  while (1)
+  {
+    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+    delay(1000);
+    ESP_LOGI("MAIN", "ghi vào file");
+    vGhiThoiGianVaoFile(); // TODO: TEST GHI FILE
+  }
 }
