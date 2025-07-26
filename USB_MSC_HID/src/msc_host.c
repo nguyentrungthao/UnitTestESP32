@@ -270,6 +270,12 @@ static esp_err_t extract_config_from_descriptor(const usb_config_desc_t *cfg_des
 
 static esp_err_t msc_deinit_device(msc_device_t *dev, bool install_failed)
 {
+    if (s_msc_driver->client_handle == NULL)
+    {
+        ESP_LOGE("EspUsbHost", "s_msc_driver->client_handle == NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     MSC_ENTER_CRITICAL();
     MSC_RETURN_ON_FALSE_CRITICAL(dev, ESP_ERR_INVALID_STATE);
     STAILQ_REMOVE(&s_msc_driver->devices_tailq, dev, msc_host_device, tailq_entry);
@@ -325,6 +331,12 @@ static esp_err_t msc_wait_for_ready_state(msc_device_t *dev, size_t timeout_ms)
 //* hàm này kiểm tra usb device có phải là USB MSC thông qua find_msc_interface
 static bool is_mass_storage_device(uint8_t dev_addr)
 {
+    if (s_msc_driver->client_handle == NULL)
+    {
+        ESP_LOGE("EspUsbHost", "s_msc_driver->client_handle == NULL");
+        return false;
+    }
+
     size_t dummy = 0;
     bool is_msc_device = false;
     usb_device_handle_t device;
@@ -450,6 +462,12 @@ esp_err_t msc_host_install_without_client_register(const msc_host_driver_config_
 
 esp_err_t msc_host_install_device(uint8_t device_address, msc_host_device_handle_t *msc_device_handle)
 {
+    if (s_msc_driver->client_handle == NULL)
+    {
+        ESP_LOGE("EspUsbHost", "s_msc_driver->client_handle == NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     esp_err_t ret;
     uint32_t block_size, block_count;
     const usb_config_desc_t *config_desc;
@@ -654,6 +672,12 @@ esp_err_t msc_bulk_transfer(msc_device_t *device, uint8_t *data, size_t size, ms
 
 esp_err_t msc_control_transfer(msc_device_t *device, size_t len)
 {
+    if (s_msc_driver->client_handle == NULL)
+    {
+        ESP_LOGE("EspUsbHost", "s_msc_driver->client_handle == NULL");
+        return ESP_ERR_INVALID_ARG;
+    }
+
     usb_transfer_t *xfer = device->xfer;
     xfer->device_handle = device->handle;
     xfer->bEndpointAddress = 0;

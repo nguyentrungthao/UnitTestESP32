@@ -30,12 +30,6 @@ bool USBMSCHOST::begin()
             assert(this->usb_flash_queue);
         }
 
-        //! xóa task nền vì nó khởi tạo usb host device
-        // if(this->usb_background_task == NULL) {
-        //     xTaskCreate(usb_background_task_cb, "usb_background_task_cb", 4096, (void*)this, 3, &this->usb_background_task);
-        //     ESP_LOGI(TAG, "Create: usb_background_task_cb");
-        //     assert(this->usb_background_task);
-        // }
         usb_msc_host_install_without_client();
 
         ESP_LOGI(TAG, "Waiting for USB flash drive to be connected");
