@@ -1,4 +1,4 @@
-#include "11_ScannerPrinter.h"
+#include "ScannerPrinter.h"
 
 ScannerPrinter::ScannerPrinter(unsigned long timeoutValue)
     : timeout(timeoutValue), lastCharTime(0), barcodeData("") {}

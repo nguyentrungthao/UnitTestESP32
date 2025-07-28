@@ -390,6 +390,7 @@ static msc_device_t *find_msc_device(usb_device_handle_t device_handle)
 }
 void msc_setup_client_handle(usb_host_client_handle_t xClientHandle)
 {
+    ESP_LOGI(TAG, "xClientHandle is :%s", xClientHandle ? "OK" : "NULL");
     if (xClientHandle)
     {
         s_msc_driver->client_handle = xClientHandle;

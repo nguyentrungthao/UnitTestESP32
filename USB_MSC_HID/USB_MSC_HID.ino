@@ -1,4 +1,4 @@
-#include "11_ScannerPrinter.h"
+#include "src/ScannerPrinter.h"
 #include "src/usb_msc_host.h"
 #include "src/espUsbHost.h"
 #include "FS.h"
@@ -266,9 +266,9 @@ void vUSBDeamonTask(void *ptr)
   {
     ESP_LOGE("MAIN", "%s ptr == NULL", __func__);
   }
-  vTaskSuspend((TaskHandle_t)ptr); // đồng bộ khởi tạo driver USB thành công trước khi đăng khí client
-  vInitDriverUSB();
-  vTaskResume((TaskHandle_t)ptr);
+  // vTaskSuspend((TaskHandle_t)ptr); // đồng bộ khởi tạo driver USB thành công trước khi đăng khí client
+  // vInitDriverUSB();
+  // vTaskResume((TaskHandle_t)ptr);
 
   bool has_clients = true;
   bool has_devices = true;
@@ -303,7 +303,6 @@ void vUSBDeamonTask(void *ptr)
 
 void vUSBClient(void *)
 {
-  vInitGeneralClient();
   while (1)
   {
     usb_host_client_handle_events(client_hdl, portMAX_DELAY);
@@ -333,16 +332,36 @@ void vGhiThoiGianVaoFile()
 void setup()
 {
   Serial.begin(115200);
+  USB_MSC_HOST.begin();
+  delay(1000);
+
   xTaskCreate(xTaskSDCard, "xTaskSDCard", 8096, NULL, 3, &xTaskSDCardhdl);
   delay(1000);
 
-  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, xTaskGetCurrentTaskHandle(), 2, NULL);
-  xTaskCreate(vUSBClient, "USB Client", 8096, NULL, 2, NULL);
+  vInitDriverUSB();
   delay(1000);
+  vInitGeneralClient();
+  delay(1000);
+  uint32_t event_flags = 0;
+  uint8_t u8Try = 2;
+  esp_err_t ret;
+  while (u8Try--)
+  {
+    ret |= usb_host_lib_handle_events(pdMS_TO_TICKS(1), &event_flags);
+    ret |= usb_host_client_handle_events(client_hdl, pdMS_TO_TICKS(1));
+    if (ret == ESP_OK)
+    {
+      break;
+    }
+    delay(1);
+  }
 
-  USB_MSC_HOST.begin();
+  xTaskCreate(vUSBDeamonTask, "USB deamon", 8096, xTaskGetCurrentTaskHandle(), 2, NULL);
+  delay(1000);
+  xTaskCreate(vUSBClient, "USB Client", 8096, NULL, 2, NULL);
+  delay(2000);
+
   //! xScannerPrinter.begin(); không cần gọi vì main quản lý device và client
-
   delay(1000);
 }
 

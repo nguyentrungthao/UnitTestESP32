@@ -246,8 +246,8 @@ void EspUsbHost::task(void) {
     ESP_LOGE("EspUsbHost", "this->clientHandle == NULL");
     return;
   }
-
-  esp_err_t err = usb_host_lib_handle_events(1, &this->eventFlags);
+  esp_err_t err;
+  err = usb_host_lib_handle_events(1, &this->eventFlags);
   if (err != ESP_OK && err != ESP_ERR_TIMEOUT) {
     ESP_LOGI("EspUsbHost", "usb_host_lib_handle_events() err=%x eventFlags=%x", err, this->eventFlags);
   }
@@ -761,7 +761,7 @@ esp_err_t EspUsbHost::submitControl(const uint8_t bmRequestType, const uint8_t b
   
     if(this->clientHandle == NULL){
     ESP_LOGE("EspUsbHost", "usbHost->clientHandle == NULL");
-    return;
+    return ESP_ERR_INVALID_ARG;
   }
   
   usb_transfer_t *transfer;
